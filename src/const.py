@@ -156,4 +156,11 @@ COLOR_STACK_BAR = [
     "orange",
     "red",
 ]
+
+VISIT_DICT_PATH = {
+    "VISIT_ORG": "../data/VISIT/visit_20160105_BVOCisprn.nc",
+    "VISIT_CASE1": "../data/VISIT/emiisop_AERmon_VISIT-org_historical_r1i1p1f1_gn_185001-201412.nc",
+    # "VISIT_CASE2": "../data/VISIT/emiisop_AERmon_VISIT-EFtropic_historical_r1i1p1f1_gn_185001-201412.nc",
+    # "VISTI_CASE3": "../data/VISIT/emiisop_AERmon_VISIT-CO2inhi_historical_r1i1p1f1_gn_185001-201412.nc",
+}
 # %%

@@ -23,14 +23,16 @@ def year_2_cft(dcm_year):
 
     return cft
 
-def visit_t2cft(visit_nc="../data/VISIT/visit_20160105_BVOCisprn.nc"):
+def visit_t2cft(visit_nc, case="VISIT_ORG"):
 
     org_visit_ds = xr.open_dataset(visit_nc, decode_times=False)
     cft = [year_2_cft(org_time) for org_time in org_visit_ds.time.values]
     org_visit_ds.coords["time"] = cft
-    # org_visit_ds = org_visit_ds.rename({"Isprn": "emiisop"})
-    org_visit_ds = org_visit_ds.rename({"isopr": "emiisop"})
-    org_visit_ds = org_visit_ds.where(org_visit_ds["emiisop"].sel(time=slice("1901-01", "2015-12")))     #uncomment when analysis new VISIT simulation
+    if case == "VISIT_ORG":
+        org_visit_ds = org_visit_ds.rename({"Isprn": "emiisop"})
+    else:
+        org_visit_ds = org_visit_ds.rename({"isopr": "emiisop"})
+        org_visit_ds = org_visit_ds.where(org_visit_ds["emiisop"].sel(time=slice("1901-01", "2015-12")))     #uncomment when analysis new VISIT simulation
 
     org_visit_ds = org_visit_ds.where(org_visit_ds["emiisop"] != -9999.0)
 
@@ -102,7 +104,7 @@ class CMIP6Visit(CMIP6Var):
 
     def get_ds_area(self):
         for f in AREA_LIST:
-            if self.model_name in f:
+            if "VISIT" in f:
                 self.ds_area = xr.open_dataset(f)
 
     def get_ds_sftlf(self):

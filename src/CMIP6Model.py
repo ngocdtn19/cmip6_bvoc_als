@@ -41,7 +41,7 @@ class Model:
         l_model_ds = []
         for f in model_files:
             var_ds = (
-                visit_t2cft() if self.model_name == "VISIT" else (xr.open_dataset(f))
+                visit_t2cft(VISIT_DICT_PATH[self.model_name], case=self.model_name) if "VISIT" in self.model_name  else (xr.open_dataset(f))
             )
             l_model_ds.append(var_ds)
 
@@ -60,7 +60,7 @@ class Model:
         )
 
         for v_name in self.var_names:
-            if self.model_name == "VISIT":
+            if "VISIT" in self.model_name:
                 self.var_objs[v_name] = CMIP6Visit(
                     self.model_name, self.get_var_ds(v_name), v_name
                 )
@@ -329,7 +329,7 @@ class Var:
 
         multi_models = {}
         for m_name in model_names:
-            if m_name != "VISIT":
+            if "VISIT" not in m_name:
                 print(m_name)
                 l_model = []
                 for f in all_files:
@@ -342,7 +342,8 @@ class Var:
                 )
 
         if self.var_name == "emiisop":
-            multi_models["VISIT"] = CMIP6Visit("VISIT", visit_t2cft(), self.var_name)
+            for visit_case in VISIT_DICT_PATH.keys():
+                multi_models[visit_case] = CMIP6Visit(visit_case, visit_t2cft(VISIT_DICT_PATH[visit_case], case=visit_case), self.var_name)
         self.multi_models = multi_models
 
     def plot_regional_map(self):
@@ -472,7 +473,7 @@ class Var:
 
     def plot_global_annual_trend(self, mode="annual"):
         model_names = self.multi_models.keys()
-        colors = {"CESM2-WACCM": "#7fc97f", "GFDL-ESM4": "#1f78b4", "GISS-E2-1-G": "#ff7f00", "NorESM2-LM": "#33a02c", "UKESM1-0-LL": "#984ea3", "VISIT": "#e41a1c"}
+        colors = {"CESM2-WACCM": "#7fc97f", "GFDL-ESM4": "#1f78b4", "GISS-E2-1-G": "#ff7f00", "NorESM2-LM": "#33a02c", "UKESM1-0-LL": "#984ea3", "VISIT_ORG": "#e41a1c", "VISIT_CASE1": "#e41a1c", "VISIT_CASE2": "#e41a1c", "VISIT_CASE3": "#e41a1c"}
         fig, ax = plt.subplots(figsize=(10, 6.5), layout="constrained")
         axbox = ax.get_position()
         for name in model_names:
@@ -524,7 +525,7 @@ class Var:
 
     @staticmethod
     def plot_annual_trend(l_x, l_y, l_name, var_name, roi, unit=""):
-        colors = {"CESM2-WACCM": "#7fc97f", "GFDL-ESM4": "#1f78b4", "GISS-E2-1-G": "#ff7f00", "NorESM2-LM": "#33a02c", "UKESM1-0-LL": "#984ea3", "VISIT": "#e41a1c"}
+        colors = {"CESM2-WACCM": "#7fc97f", "GFDL-ESM4": "#1f78b4", "GISS-E2-1-G": "#ff7f00", "NorESM2-LM": "#33a02c", "UKESM1-0-LL": "#984ea3", "VISIT_ORG": "#e41a1c", "VISIT_CASE1": "#e41a1c", "VISIT_CASE2": "#e41a1c", "VISIT_CASE3": "#e41a1c"}
         fig, ax = plt.subplots(figsize=(10, 6.5), layout="constrained")
         axbox = ax.get_position()
         for x, y, n in zip(l_x, l_y, l_name):
@@ -654,7 +655,7 @@ class Var:
                     time=slice(y2p(p)[0], y2p(p)[1])
                 )
                 ds = ds.sel(lat=np.arange(-90, 90, 5), method="nearest")
-                if m_name == "VISIT":
+                if "VISIT" in m_name:
                     xr.plot.contourf(ds,
                     x = ds.dims[0],
                     y = ds.dims[1],
