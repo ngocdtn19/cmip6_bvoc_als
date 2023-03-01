@@ -42,7 +42,7 @@ ROI_DICT = {
 
 VIZ_OPT = {
     "emiisop": {
-        "map_unit": "[$gC/m^{2}/year$]", #cmap1="RdBu_r", cmap2="RdPu"
+        "map_unit": "[$gC/m^{2}/year$]",  # cmap1="RdBu_r", cmap2="RdPu"
         "map_vmin": 0,
         "map_vmax": 40,
         "map_levels": 17,
@@ -52,7 +52,7 @@ VIZ_OPT = {
         "holv_unit": "[$gC/m^{2}/month$]",
     },
     "emibvoc": {
-        "map_unit": "[$g/m^{2}/year$]", # cmap1="RdBu_r", cmap2="YlGn"
+        "map_unit": "[$g/m^{2}/year$]",  # cmap1="RdBu_r", cmap2="YlGn"
         "map_vmin": 0,
         "map_vmax": 50,
         "map_levels": 17,
@@ -86,7 +86,7 @@ VIZ_OPT = {
         "line_ylim": [30, 150],
     },
     "rsds": {
-        "map_unit": "[$W/m^{2}$]", #cmap1="RdBu_r", cmap2="YlOrRd", bg_color="#053061" for change map
+        "map_unit": "[$W/m^{2}$]",  # cmap1="RdBu_r", cmap2="YlOrRd", bg_color="#053061" for change map
         "map_vmin": 0,
         "map_vmax": 0,
         "map_levels": 0,
@@ -95,7 +95,7 @@ VIZ_OPT = {
         "bar_ylim": 0,
     },
     "tas": {
-        "map_unit": "[$^{\circ}C$]", #cmap1="RdBu_r", cmap2="Spectral_r", bg_color="#5e4fa2" for abs map, bg_color="#053061" for change map
+        "map_unit": "[$^{\circ}C$]",  # cmap1="RdBu_r", cmap2="Spectral_r", bg_color="#5e4fa2" for abs map, bg_color="#053061" for change map
         "map_vmin": -30,
         "map_vmax": 40,
         "map_levels": 13,
@@ -104,7 +104,7 @@ VIZ_OPT = {
     },
     "emioa": {
         "map_unit": "[$g/m^{2}/year$]",  # cmap1="RdBu_r", cmap2="OrRd"
-        "map_vmin": 0,          #bg_color="#053061", vmin=-0.15, vmax=0.15 for change map
+        "map_vmin": 0,  # bg_color="#053061", vmin=-0.15, vmax=0.15 for change map
         "map_vmax": 0.3,
         "map_levels": 17,
         "line_bar_unit": "[Tg]",
@@ -113,8 +113,8 @@ VIZ_OPT = {
         # "holv_unit": "[$gC/m^{2}/month$]",
     },
     "chepsoa": {
-        "map_unit": "[$g/m^{2}/year$]",     # cmap1="RdBu_r", cmap2="OrRd"
-        "map_vmin": 0,             
+        "map_unit": "[$g/m^{2}/year$]",  # cmap1="RdBu_r", cmap2="OrRd"
+        "map_vmin": 0,
         "map_vmax": 0.2,
         "map_levels": 17,
         "line_bar_unit": "[Tg]",
@@ -131,11 +131,10 @@ VIZ_OPT = {
         "line_ylim": [0, 0],
         "bar_ylim": [0, 0],
         "holv_unit": "[$gC/m^{2}/month$]",
-
     },
     "emipoa": {
-        "map_unit": "[$g/m^{2}/year$]",     # cmap1="RdBu_r", cmap2="OrRd"
-        "map_vmin": 0,             
+        "map_unit": "[$g/m^{2}/year$]",  # cmap1="RdBu_r", cmap2="OrRd"
+        "map_vmin": 0,
         "map_vmax": 0.2,
         "map_levels": 17,
         "line_bar_unit": "[Tg]",
@@ -160,7 +159,16 @@ COLOR_STACK_BAR = [
 VISIT_DICT_PATH = {
     "VISIT_ORG": "../data/VISIT/visit_20160105_BVOCisprn.nc",
     "VISIT_CASE1": "../data/VISIT/emiisop_AERmon_VISIT-org_historical_r1i1p1f1_gn_185001-201412.nc",
-    # "VISIT_CASE2": "../data/VISIT/emiisop_AERmon_VISIT-EFtropic_historical_r1i1p1f1_gn_185001-201412.nc",
-    # "VISTI_CASE3": "../data/VISIT/emiisop_AERmon_VISIT-CO2inhi_historical_r1i1p1f1_gn_185001-201412.nc",
+    "VISIT_CASE2": "../data/VISIT/emiisop_AERmon_VISIT-EFtropic_historical_r1i1p1f1_gn_185001-201412.nc",
+    "VISIT_CASE3": "../data/VISIT/emiisop_AERmon_VISIT-CO2inhi_historical_r1i1p1f1_gn_185001-201412.nc",
 }
+
+TOPDOWN_DIR = "../data/topdown"
+TOPDOWN_VAR = "EMworldC5H8"
+LIST_TOPDOWN_ANNUAL_FILES = glob.glob(os.path.join(TOPDOWN_DIR, "*.nc"))
+CONCAT_TOPDOWN_PATH = "../data/topdown/concat_topdown.nc"
+
+
+VISIT_LAT_FILE = "../data/visit_latlon/visit_lat.npy"
+VISIT_LONG_FILE = "../data/visit_latlon/visit_long.npy"
 # %%

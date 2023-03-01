@@ -1,5 +1,4 @@
 #%%
-from tkinter.tix import DirSelectDialog
 import xarray as xr
 from const import *
 import numpy as np
