@@ -16,7 +16,20 @@ TOPDOWN_DS = xr.open_dataset(CONCAT_TOPDOWN_PATH)
 AVAIL_TIME = slice("2005-01", "2014-12")
 
 
-test_model = "CESM2-WACCM"
+def cal_nodays_m(ds):
+    n_month = 12
+    noday_360 = [30] * n_month
+    noday_noleap = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+    calendar = ds.time.dt.calendar
+
+    l = int(len(ds.time) / n_month)
+    if calendar == "360_day":
+        nodays_m = np.array(noday_360 * l)
+    else:
+        nodays_m = np.array(noday_noleap * l)
+
+    return nodays_m
 
 
 def interpolate(ds):
@@ -28,13 +41,19 @@ def interpolate(ds):
     return interpolated_ds
 
 
-def val_single_model(model_name=test_model, var_name="emiisop"):
+def preprocess_truth_model_ds(model_name, var_name="emiisop"):
+    topdown_ds = copy.deepcopy(TOPDOWN_DS)
 
+    # merge and convert to gC/m2/month
     if "VISIT" not in model_name:
         list_nc_files = DICT_MODEL_NAMES[model_name]
         model_ds = merge_by_model(list_nc_files)
+        nodays_m = cal_nodays_m(model_ds)
+        model_ds[var_name] = KG_2_G * ISOP_2_C * DAY_RATE * model_ds[var_name]
+        model_ds[var_name] = model_ds[var_name].transpose(..., "time") * nodays_m
     else:
         model_ds = visit_t2cft(VISIT_DICT_PATH[model_name], case=model_name)
+        model_ds[var_name] = model_ds[var_name] * MG_2_G
 
     sliced_model_ds = model_ds.sel(time=AVAIL_TIME)
 
@@ -47,16 +66,25 @@ def val_single_model(model_name=test_model, var_name="emiisop"):
 
     interpolated_ds = interpolate(sliced_model_ds)
 
-    TOPDOWN_DS["time"] = interpolated_ds.time
-    test_score = xskill.pearson_r(
-        TOPDOWN_DS.emiisop / TOPDOWN_DS.Grid_area, interpolated_ds, dim="time"
+    topdown_ds["time"] = interpolated_ds.time
+
+    # convert to gC/m2/month unit
+    topdown_ds = topdown_ds.where(topdown_ds[var_name] != -99.0)
+    topdown_ds[var_name] = (
+        topdown_ds[var_name] / topdown_ds.Grid_area * KG_2_G * ISOP_2_C
     )
+
+    return topdown_ds[var_name], interpolated_ds
+
+
+def val_single_score(truth_ds, model_ds, score):
+    test_score = score(truth_ds, model_ds, dim="time", skipna=True)
     return test_score
 
 
 def plot_map(test_score, i):
 
-    fig = plt.figure(1 + i, figsize=(30, 13))
+    fig = plt.figure(i, figsize=(30, 13))
     ax = plt.subplot(1, 1, 1, projection=ccrs.PlateCarree())
     ax.coastlines()
     ax.gridlines(
@@ -77,20 +105,23 @@ def plot_map(test_score, i):
 
 
 def main():
+    dict_score = {
+        "pearson_r": xskill.pearson_r,
+        "pearson_r_p_value": xskill.pearson_r_p_value,
+        "mae": xskill.mae,
+        "rmse": xskill.rmse,
+    }
 
-    # not visit
-    for t, model_name in enumerate(DICT_MODEL_NAMES.keys()):
-        print(model_name)
-        test_score = val_single_model(model_name)
-        plot_map(test_score, t)
-        plt.title(model_name, fontsize=18)
+    # DICT_MODEL_NAMES.update(VISIT_DICT_PATH)
 
-    # visit
-    for i, model_name in enumerate(VISIT_DICT_PATH):
+    for i, model_name in enumerate(DICT_MODEL_NAMES.keys()):
         print(model_name)
-        test_score = val_single_model(model_name)
-        plot_map(test_score, i + t)
-        plt.title(model_name, fontsize=18)
+        truth_ds, model_ds = preprocess_truth_model_ds(model_name)
+
+        for j, score_name in enumerate(dict_score.keys()):
+            test_score = val_single_score(truth_ds, model_ds, dict_score[score_name])
+            plot_map(test_score, i * 4 + j + 1)
+            plt.title(f"{model_name} - {score_name}", fontsize=18)
 
 
 # %%
