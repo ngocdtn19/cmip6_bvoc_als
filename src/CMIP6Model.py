@@ -152,22 +152,14 @@ class Model:
     
     def plot_regional_annual_trend(self, mode="annual"):
         var_names = self.var_objs.keys()
-        l_roi = list(ROI_DICT.keys())
+        # l_roi = list(ROI_DICT.keys())
+        l_roi = LIST_REGION
 
         for v_name in var_names:
             # years = self.var_objs[v_name].years      
 
             f, ax = plt.subplots(figsize=(9, 7), layout="constrained")
-            colors = {"NAm":"darkblue", 
-                "SAm":"blue", 
-                "Eu":"deepskyblue", 
-                "NAf": "aqua",
-                "EqAf":"mediumspringgreen",
-                "Saf":"greenyellow",
-                "Rus":"yellow",
-                "SA":"orange",
-                "Aus":"red", 
-            }
+            colors = ROI_COLORS
             for roi in l_roi:
                 if mode == "annual":
                     arr = self.var_objs[v_name].regional_rate[roi]
@@ -191,7 +183,7 @@ class Model:
                     f"{v_name} - Regional Variation"
                 )
                 # plt.ylim([2.2, 2.7]) # modified to customize the figure
-                plt.savefig(os.path.join("../fig/", self.model_name, f"{v_name}-reg-{mode}.png"))
+                # plt.savefig(os.path.join("../fig/", self.model_name, f"{v_name}-reg-{mode}.png"))
 
     def plot_2var_global_annual_trend(self, sy, ey, cv="emiisop", mode="annual"):
         var_names = self.var_objs.keys()
@@ -234,7 +226,8 @@ class Model:
     
     def plot_2var_regional_annual_trend(self, sy, ey, roi= "SA", cv="emiisop", mode="annual"):
         var_names = self.var_objs.keys()
-        l_roi = list(ROI_DICT.keys())
+        # l_roi = list(ROI_DICT.keys())
+        l_roi = LIST_REGION
         colors = {
             "emiisop": "green", "emibvoc": "#ff796c", "emioa": "#4d4d4d",
             "pr": "darkblue", "rsds": "#ff7f00", "tas": "#e41a1c", 
@@ -347,7 +340,8 @@ class Var:
         self.multi_models = multi_models
 
     def plot_regional_map(self):
-        rois = list(ROI_DICT.keys())
+        # rois = list(ROI_DICT.keys())
+        rois = LIST_REGION
         l_m_name = list(self.multi_models.keys())
         ds = self.multi_models[l_m_name[0]]
         for i, r in enumerate(rois):
@@ -511,7 +505,7 @@ class Var:
         
         model_names = self.multi_models.keys()
         roi_ds = {}
-        for roi in ROI_DICT:
+        for roi in LIST_REGION:
             roi_ds[roi] = []
             years = []
 
@@ -585,7 +579,8 @@ class Var:
         plt.savefig(os.path.join("../fig/", var_name, f"{l_name}-ss-trend.png"))
 
     def plot_stacked_bar(self, year):
-        l_roi = list(ROI_DICT.keys())
+        # l_roi = list(ROI_DICT.keys())
+        l_roi = LIST_REGION
 
         model_names = list(self.multi_models.keys())
 
@@ -617,7 +612,7 @@ class Var:
         print(df)
         ax = df.plot.bar(
             stacked=True,
-            color={roi: color for roi, color in zip(l_roi, COLOR_STACK_BAR)},
+            color=ROI_COLORS,
             title=f"Regional Contribution - {year}",
             rot=45,
         )

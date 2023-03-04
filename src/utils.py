@@ -6,6 +6,18 @@ import matplotlib.pyplot as plt
 import calendar
 import cartopy.crs as ccrs
 import rioxarray
+import pandas as pd
+import regionmask
+import geopandas as gpd
+
+
+def clip_region_mask(ds, region_name="SEA"):
+    # print(region_name)
+
+    region_mask = regionmask.defined_regions.giorgi[[region_name]]
+    gdf = gpd.GeoDataFrame([1], geometry=region_mask.polygons, crs=WORLD_SHP.crs)
+
+    return ds.rio.clip(gdf.geometry, crs=gdf.crs)
 
 
 def get_model_name(path):
@@ -295,7 +307,7 @@ def resample(ds):
 
 
 def y2p(p):
-    s,e = p
+    s, e = p
     ys = 1850
 
     m_s = (s - ys) * 12

@@ -2,6 +2,13 @@
 import glob
 import os
 import math
+import geopandas as gpd
+import regionmask
+import random
+
+
+get_colors = lambda n: ["#%06x" % random.randint(0, 0xFFFFFF) for _ in range(n)]
+
 
 DIM_TIME = "time"
 DIM_LAT = "lat"
@@ -27,6 +34,16 @@ MG_2_G = 1e-6
 MG_2_TG = 1e-18
 # DEG_2_M2 = 55500**2
 
+
+LIST_REGION = ["SEA", "EAS"]
+REGION = regionmask.defined_regions.giorgi
+LIST_REGION = [REGION.regions[i].abbrev for i in REGION.regions.keys()]
+LIST_COLOR = get_colors(len(LIST_REGION))
+
+
+
+
+ROI_COLORS = {roi: color for roi, color in zip(LIST_REGION, LIST_COLOR)}
 
 ROI_DICT = {
     "NAm": {"min_lat": 13, "max_lat": 75, "min_lon": -170, "max_lon": -40},
@@ -171,4 +188,7 @@ CONCAT_TOPDOWN_PATH = "../data/topdown/concat_topdown.nc"
 
 VISIT_LAT_FILE = "../data/visit_latlon/visit_lat.npy"
 VISIT_LONG_FILE = "../data/visit_latlon/visit_long.npy"
+
+WORLD_SHP = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
+
 # %%
