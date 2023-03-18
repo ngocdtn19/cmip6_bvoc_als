@@ -199,18 +199,6 @@ COLOR_STACK_BAR = [
     "red",
 ]
 
-VISIT_DICT_PATH = {
-    # "VISIT_ORG": "../data/VISIT/visit_20160105_BVOCisprn.nc",
-    # "VISIT_CASE1": "../data/VISIT/emiisop_AERmon_VISIT-org_historical_r1i1p1f1_gn_185001-201412.nc",
-    "VISIT_CASE2": "../data/VISIT/emiisop_AERmon_VISIT-EFtropic_historical_r1i1p1f1_gn_185001-201412.nc",
-    "VISIT_CASE3": "../data/VISIT/emiisop_AERmon_VISIT-CO2inhi_historical_r1i1p1f1_gn_185001-201412.nc",
-    # "VISIT_FSM0": "../data/VISIT/emiisop_AERmon_VISIT-fsm0_historical_r1i1p1f1_gn_185001-201412.nc",
-    # "VISIT_FSM1": "../data/VISIT/emiisop_AERmon_VISIT-fsm1_historical_r1i1p1f1_gn_185001-201412.nc",
-    # "VISIT_TAS": "../data/VISIT/visit_20230220_BVOC0_ISM3a_G3E5-ev-hist_tas.nc",
-    # "VISIT_RSDS": "../data/VISIT/visit_20230220_BVOC0_ISM3a_G3E5-ev-hist_rsds.nc",
-    # "VISIT_PR": "../data/VISIT/visit_20230220_BVOC0_ISM3a_G3E5-ev-hist_pr.nc",
-}
-
 TOPDOWN_DIR = "../data/topdown"
 TOPDOWN_VAR = "EMworldC5H8"
 LIST_TOPDOWN_ANNUAL_FILES = glob.glob(os.path.join(TOPDOWN_DIR, "*.nc"))

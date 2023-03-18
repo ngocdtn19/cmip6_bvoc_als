@@ -73,7 +73,7 @@ class CMIP6Var:
         self.cal_global_seasonal_rate()
 
         self.cal_glob_rate()
-        self.cal_reg_ds_rate()
+        # self.cal_reg_ds_rate()
 
     def cal_years(self):
         self.years = list(set(t.year for t in self.org_ds_var[DIM_TIME].values))
