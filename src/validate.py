@@ -1,7 +1,9 @@
-#%%
+# %%
 import xarray as xr
 import xskillscore as xskill
 import copy
+import matplotlib
+
 
 from utils import *
 from const import *
@@ -83,7 +85,6 @@ def val_single_score(truth_ds, model_ds, score):
 
 
 def plot_map(test_score, i):
-
     fig = plt.figure(i, figsize=(30, 13))
     ax = plt.subplot(1, 1, 1, projection=ccrs.PlateCarree())
     ax.coastlines()
@@ -94,25 +95,30 @@ def plot_map(test_score, i):
         linewidth=1,
         edgecolor="dimgrey",
     )
+    my_cmap = matplotlib.cm.get_cmap("Paired")
+    my_cmap.set_under("#e0f3f8")
+
     test_score.plot.pcolormesh(
         ax=ax,
-        # # levels=21,    #customize for individual variable if needed
-        # vmin= 0,
-        # vmax= 35,
+        cmap=my_cmap,
+        levels=11,
+        vmin=-2.5,
+        vmax=2.5,
         extend="both",
-        # cbar_kwargs={"label": VIZ_OPT[self.var_name]["map_unit"]},
+        cbar_kwargs={"label": "[$gC/m^{2}/month$]"},
     )
 
 
 def main():
     dict_score = {
-        "pearson_r": xskill.pearson_r,
-        "pearson_r_p_value": xskill.pearson_r_p_value,
-        "mae": xskill.mae,
-        "rmse": xskill.rmse,
+        # "pearson_r": xskill.pearson_r,
+        # "pearson_r_p_value": xskill.pearson_r_p_value,
+        # "mae": xskill.mae,
+        # "rmse": xskill.rmse,
+        "me": xskill.me,
     }
 
-    # DICT_MODEL_NAMES.update(VISIT_DICT_PATH)
+    DICT_MODEL_NAMES.update(VISIT_DICT_PATH)
 
     for i, model_name in enumerate(DICT_MODEL_NAMES.keys()):
         print(model_name)
@@ -120,8 +126,11 @@ def main():
 
         for j, score_name in enumerate(dict_score.keys()):
             test_score = val_single_score(truth_ds, model_ds, dict_score[score_name])
-            plot_map(test_score, i * 4 + j + 1)
+            plot_map(test_score, i * len(DICT_MODEL_NAMES.keys()) + j + 1)
             plt.title(f"{model_name} - {score_name}", fontsize=18)
+            plt.savefig(
+                os.path.join("../fig/validate", f"{model_name}-{score_name}.png")
+            )
 
 
 # %%

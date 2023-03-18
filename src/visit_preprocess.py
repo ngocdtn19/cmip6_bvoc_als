@@ -1,7 +1,8 @@
-#%%
+# %%
 import xarray as xr
 import cftime
 import numpy as np
+import copy
 
 from datetime import datetime, timedelta
 from CMIP6Model import CMIP6Var
@@ -23,43 +24,85 @@ def year_2_cft(dcm_year):
 
     return cft
 
-def visit_t2cft(visit_nc, case="VISIT_ORG"):
 
+def visit_t2cft(visit_nc, case="VISIT_ORG"):
     org_visit_ds = xr.open_dataset(visit_nc, decode_times=False)
     cft = [year_2_cft(org_time) for org_time in org_visit_ds.time.values]
     org_visit_ds.coords["time"] = cft
+    # if case == "VISIT_TAS":
+    #     org_visit_ds = org_visit_ds.where(
+    #         org_visit_ds["tas"].sel(time=slice("1901-01", "2015-12"))
+    #     )
+    #     org_visit_ds = org_visit_ds.where(org_visit_ds["tas"] != -9999.0)
+    # if case == "VISIT_RSDS":
+    #     org_visit_ds = org_visit_ds.where(
+    #         org_visit_ds["rsds"].sel(time=slice("1901-01", "2015-12"))
+    #     )
+    #     org_visit_ds = org_visit_ds.where(org_visit_ds["rsds"] != -9999.0)
     if case == "VISIT_ORG":
         org_visit_ds = org_visit_ds.rename({"Isprn": "emiisop"})
+        org_visit_ds = org_visit_ds.where(org_visit_ds["emiisop"] != -9999.0)
     else:
         org_visit_ds = org_visit_ds.rename({"isopr": "emiisop"})
-        org_visit_ds = org_visit_ds.where(org_visit_ds["emiisop"].sel(time=slice("1901-01", "2015-12")))     #uncomment when analysis new VISIT simulation
-
-    org_visit_ds = org_visit_ds.where(org_visit_ds["emiisop"] != -9999.0)
+        org_visit_ds = org_visit_ds.where(
+            org_visit_ds["emiisop"].sel(time=slice("1901-01", "2015-12"))
+        )
+        org_visit_ds = org_visit_ds.where(org_visit_ds["emiisop"] != -9999.0)
 
     return org_visit_ds
 
+
 def grid_area(lat1, lat2, lon1, lon2):
-    E_RAD = 6378137.0; # m, GRS-80(revised)
+    E_RAD = 6378137.0
+    # m, GRS-80(revised)
     E_FLAT = 298.257
     PI = 3.1415926
-    E_EXC = math.sqrt(2.0/E_FLAT - 1.0/(E_FLAT*E_FLAT))
+    E_EXC = math.sqrt(2.0 / E_FLAT - 1.0 / (E_FLAT * E_FLAT))
 
-    if lat1 > 90.0: lat1 = 90.0
-    if lat2 < -90.0: lat2 = -90.0 
+    if lat1 > 90.0:
+        lat1 = 90.0
+    if lat2 < -90.0:
+        lat2 = -90.0
 
-    m_lat = (lat1+lat2)/2.0 * PI/180.0
-    
-    aa1 = 1.0 - E_EXC*E_EXC*math.sin(m_lat)*math.sin(m_lat)
-    l_lat = PI/180.0*E_RAD*(1.0 - E_EXC*E_EXC)/math.pow(aa1, 1.5) * math.fabs(lat1 - lat2)
-    
-    aa2 = 1.0 - E_EXC*E_EXC*math.sin(lat1*PI/180.0)*math.sin(lat1*PI/180.0)
-    l_lon1 = PI/180.0*E_RAD*math.cos(lat1*PI/180.0)/math.sqrt(aa2) * math.fabs(lon1-lon2)
-    aa3 = 1.0 - E_EXC*E_EXC*math.sin(lat2*PI/180.0)*math.sin(lat2*PI/180.0)
-    l_lon2 = PI/180.0*E_RAD*math.cos(lat2*PI/180.0)/math.sqrt(aa3) * math.fabs(lon1-lon2)
-    
-    area = (l_lon1 + l_lon2)*l_lat/2.0
+    m_lat = (lat1 + lat2) / 2.0 * PI / 180.0
+
+    aa1 = 1.0 - E_EXC * E_EXC * math.sin(m_lat) * math.sin(m_lat)
+    l_lat = (
+        PI
+        / 180.0
+        * E_RAD
+        * (1.0 - E_EXC * E_EXC)
+        / math.pow(aa1, 1.5)
+        * math.fabs(lat1 - lat2)
+    )
+
+    aa2 = 1.0 - E_EXC * E_EXC * math.sin(lat1 * PI / 180.0) * math.sin(
+        lat1 * PI / 180.0
+    )
+    l_lon1 = (
+        PI
+        / 180.0
+        * E_RAD
+        * math.cos(lat1 * PI / 180.0)
+        / math.sqrt(aa2)
+        * math.fabs(lon1 - lon2)
+    )
+    aa3 = 1.0 - E_EXC * E_EXC * math.sin(lat2 * PI / 180.0) * math.sin(
+        lat2 * PI / 180.0
+    )
+    l_lon2 = (
+        PI
+        / 180.0
+        * E_RAD
+        * math.cos(lat2 * PI / 180.0)
+        / math.sqrt(aa3)
+        * math.fabs(lon1 - lon2)
+    )
+
+    area = (l_lon1 + l_lon2) * l_lat / 2.0
 
     return area
+
 
 def cal_ds_area(visit_nc="../data/VISIT/visit_20160105_BVOCisprn.nc"):
     ds = xr.open_dataset(visit_nc, decode_times=False)
@@ -70,29 +113,28 @@ def cal_ds_area(visit_nc="../data/VISIT/visit_20160105_BVOCisprn.nc"):
 
     final_arr = []
     for g in range(0, len(nlat)):
-        glat = 89.75 - 0.5*g
-        garea.append(grid_area(glat+0.25,glat-0.25,0.0,0.5))
-    arr = np.array(garea) 
+        glat = 89.75 - 0.5 * g
+        garea.append(grid_area(glat + 0.25, glat - 0.25, 0.0, 0.5))
+    arr = np.array(garea)
 
-
-    _ = [final_arr.append([i]*len(nlon)) for i in arr]
+    _ = [final_arr.append([i] * len(nlon)) for i in arr]
     data = np.array(final_arr)
     ds_area = xr.Dataset(
-        data_vars=dict(
-            areacella=(["lat", "lon"], data)
-        ),
+        data_vars=dict(areacella=(["lat", "lon"], data)),
         coords=dict(
             lat=nlat,
             lon=nlon,
-        )
+        ),
     )
 
     return ds_area
 
-def save_2_nc(org_visit_ds):
-    var_name = "emiisop"
-    m_name = "VISIT"
-    org_visit_ds.to_netcdf(f"../data/var/{var_name}/{var_name}_AERmon_{m_name}_historical_r1i1p1f1_gn_190101-201512.nc")
+
+# def save_2_nc(org_visit_ds):
+#     var_name = "emiisop"
+#     m_name = "VISIT"
+#     org_visit_ds.to_netcdf(f"../data/var/{var_name}/{var_name}_AERmon_{m_name}_historical_r1i1p1f1_gn_190101-201512.nc")
+
 
 class CMIP6Visit(CMIP6Var):
     def __init__(self, model_name, org_ds_var, var_name):
@@ -111,25 +153,23 @@ class CMIP6Visit(CMIP6Var):
         return
 
     def cal_monthly_per_area_unit(self):
-
         self.monthly_per_area_unit = self.org_ds_var[self.var_name] * MG_2_G
 
     def cal_annual_per_area_unit(self):
         ds = self.monthly_per_area_unit
-        self.annual_per_area_unit = ds.groupby(ds.time.dt.year).sum(skipna=True)
+        self.annual_per_area_unit = ds.groupby(ds.time.dt.year).mean(skipna=True)
 
     def cal_monthly_ds(self):
         reindex_ds_var = self.org_ds_var[self.var_name].reindex_like(
             self.ds_area[VAR_AREA], method="nearest", tolerance=0.01
         )
-        self.monthly_ds = (self.ds_area[VAR_AREA]*reindex_ds_var* MG_2_TG)
+        self.monthly_ds = self.ds_area[VAR_AREA] * reindex_ds_var * MG_2_TG
 
     def cal_annual_ds(self):
         ds = self.monthly_ds
         self.annual_ds = ds.groupby(ds.time.dt.year).sum(skipna=True)
 
     def cal_glob_rate(self):
-
         self.global_rate = self.annual_ds.sum(dim=[DIM_LAT, DIM_LON])
         self.global_rate_anml = self.global_rate - self.global_rate.mean(skipna=True)
 
@@ -149,6 +189,80 @@ class CMIP6Visit(CMIP6Var):
         y10_rate.append(np.mean(self.global_rate[interval * (l - 1) :]).item())
 
         self.y10_rate = {"years": y10, "y10_rate": y10_rate}
+
+
+class VisitTAS(CMIP6Var):
+    def __init__(self, model_name, org_ds_var, var_name):
+        super().__init__(model_name, org_ds_var, var_name)
+
+    def cal_years(self):
+        self.years = list(set(t.year for t in self.org_ds_var[DIM_TIME].values))
+
+    def get_ds_area(self):
+        for f in AREA_LIST:
+            if "VISIT" in f:
+                self.ds_area = xr.open_dataset(f)
+
+    def cal_monthly_ds(self):
+        self.monthly_ds = copy.deepcopy(self.org_ds_var[self.var_name])
+        # ws = np.cos(np.deg2rad(self.org_ds_var.lat))
+        # self.weighted_monthly_ds = self.org_ds_var[self.var_name].weighted(ws)
+
+    def cal_monthly_per_area_unit(self):
+        self.monthly_per_area_unit = copy.deepcopy(self.org_ds_var[self.var_name])
+
+    def cal_annual_ds(self):
+        ws = np.cos(np.deg2rad(self.org_ds_var.lat))
+        ds = self.monthly_ds[:]
+        ds = ds.groupby(ds.time.dt.year).mean("time")
+        self.annual_ds = ds.weighted(ws)
+
+    def cal_annual_per_area_unit(self):
+        ds = self.monthly_per_area_unit
+        self.annual_per_area_unit = ds.groupby(ds.time.dt.year).mean(
+            "time", skipna=True
+        )
+
+    def cal_reg_ds_rate(self):
+        clipped_ds = self.clip_2_roi_ds()
+        for roi in clipped_ds:
+            mon_ds_roi = clipped_ds[roi]
+            ann_ds_roi = mon_ds_roi.groupby(mon_ds_roi.time.dt.year).mean(skipna=True)
+            ws = np.cos(np.deg2rad(ann_ds_roi.lat))
+            ann_ds_roi = ann_ds_roi.weighted(ws)
+
+            self.regional_ds[roi] = ann_ds_roi
+            self.regional_rate[roi] = ann_ds_roi.mean(
+                dim=[DIM_LAT, DIM_LON], skipna=True
+            )
+            self.regional_mean_1850_2014[roi] = self.regional_rate[roi].mean(
+                skipna=True
+            )
+            self.regional_rate_anml[roi] = (
+                self.regional_rate[roi] - self.regional_mean_1850_2014[roi]
+            )
+
+    def cal_seasonal_ds(self):
+        ds = self.monthly_ds
+        self.seasonal_ds = ds.resample(time="QS-DEC").mean(skipna=True)
+
+    def cal_global_seasonal_rate(self):
+        ds = self.seasonal_ds
+        ws = np.cos(np.deg2rad(self.org_ds_var.lat))
+        self.global_seasonal_rate = ds.weighted(ws).mean(dim=[DIM_LAT, DIM_LON])
+        self.global_seasonal_rate_anml = (
+            ds.weighted(ws).mean(dim=[DIM_LAT, DIM_LON]).groupby("time.month")
+            - ds.weighted(ws).mean(dim=[DIM_LAT, DIM_LON]).groupby("time.month").mean()
+        )
+
+    def cal_glob_rate(self):
+        self.global_rate = self.annual_ds.mean(dim=[DIM_LAT, DIM_LON], skipna=True)
+        self.global_rate_anml = self.global_rate - self.global_rate.mean(skipna=True)
+
+
+class VisitRSDS(VisitTAS):
+    def __init__(self, model_name, org_ds_var, var_name):
+        super().__init__(model_name, org_ds_var, var_name)
 
 
 # %%

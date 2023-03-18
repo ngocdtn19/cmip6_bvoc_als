@@ -1,4 +1,4 @@
-#%%
+# %%
 
 from CMIP6Var import *
 from const import *
@@ -12,6 +12,7 @@ import xskillscore as xs
 
 sns.set_style("ticks")
 
+
 class Model:
     var_obj_dict = {
         "emiisop": Cmip6TimeSum,
@@ -24,7 +25,7 @@ class Model:
         "rsds": RSDS,
         "emioa": EMIOA,
         "chepsoa": CHEPSOA,
-        "emipoa" :EMIPOA,
+        "emipoa": EMIPOA,
     }
 
     def __init__(self, model_name="UKESM1-0-LL") -> None:
@@ -35,13 +36,14 @@ class Model:
         self.extract_vars()
 
     def get_var_ds(self, var_name):
-
         var_files = glob.glob(os.path.join(VAR_DIR, var_name, "*.nc"))
         model_files = [f for f in var_files if self.model_name in f]
         l_model_ds = []
         for f in model_files:
             var_ds = (
-                visit_t2cft(VISIT_DICT_PATH[self.model_name], case=self.model_name) if "VISIT" in self.model_name  else (xr.open_dataset(f))
+                visit_t2cft(VISIT_DICT_PATH[self.model_name], case=self.model_name)
+                if "VISIT" in self.model_name
+                else (xr.open_dataset(f))
             )
             l_model_ds.append(var_ds)
 
@@ -50,7 +52,7 @@ class Model:
     def extract_vars(self):
         all_var_files = list()
 
-        for (dp, dn, fn) in os.walk(VAR_DIR):
+        for dp, dn, fn in os.walk(VAR_DIR):
             all_var_files += [os.path.join(dp, file) for file in fn]
 
         # remove files without containing model_name
@@ -69,7 +71,9 @@ class Model:
                     self.model_name, self.get_var_ds(v_name), v_name
                 )
 
-    def plot_mk_annual(self, sy, ey, var_name, cmap="RdBu", levels=13, vmin=-0.024, vmax=0.024):
+    def plot_mk_annual(
+        self, sy, ey, var_name, cmap="RdBu", levels=13, vmin=-0.024, vmax=0.024
+    ):
         annual_ds = self.var_objs[var_name].annual_per_area_unit.sel(year=slice(sy, ey))
 
         x = xr.DataArray(
@@ -93,32 +97,32 @@ class Model:
             edgecolor="dimgrey",
         )
         my_cmap = matplotlib.cm.get_cmap(cmap)
-        title = (
-            f"Annual Trends of {var_name} from {sy}-{ey} using the Modified Mann-Kendall method"
-        )
+        title = f"Annual Trends of {var_name} from {sy}-{ey} using the Modified Mann-Kendall method"
         pc = plt.contourf(
-            wrap_lon, 
-            slope.lat, 
+            wrap_lon,
+            slope.lat,
             wrap_s,
-            cmap = my_cmap,
-            levels = levels,
+            cmap=my_cmap,
+            levels=levels,
             # levels=[-0.02, -0.015, -0.01, -0.005, -0.001, -0.0005, 0, 0.0005, 0.001, 0.005, 0.01, 0.015, 0.02],
             # colors=["#053061","#2166ac", "#4393c3","#92c5de","#d1e5f0","#f7f7f7","#f7f7f7","#fddbc7", "#f4a582","#d6604d", "#b2182b", "#67001f"],
             # levels=[-0.016, -0.008, -0.004, -0.001, -0.0001, -0.0000001, 0, 0.0000001, 0.001, 0.004, 0.008, 0.016, 0.024],
             # colors=["#67001f","#b2182b", "#d6604d","#f4a582","#fddbc7","#f7f7f7","#f7f7f7","#d1e5f0", "#92c5de","#4393c3", "#2166ac", "#053061"],
-            vmin = vmin,
-            vmax = vmax,
-            extend ="both",
+            vmin=vmin,
+            vmax=vmax,
+            extend="both",
         )
-        cb = plt.colorbar(pc, ax=ax, orientation='vertical')
+        cb = plt.colorbar(pc, ax=ax, orientation="vertical")
         cb.set_label(VIZ_OPT[var_name]["map_unit"])
         plt.title(title, fontsize=24)
-        plt.savefig(os.path.join("../fig/", self.model_name, f"mk-{var_name}-{sy}-{ey}.png"))
+        plt.savefig(
+            os.path.join("../fig/", self.model_name, f"mk-{var_name}-{sy}-{ey}.png")
+        )
 
     def plot_mk_ss(self, sy, ey, var_name, cmap="RdBu_r"):
-
-        ss_ds = self.var_objs[var_name].seasonal_ds
-        ss_ds = ss_ds.sel(time=ss_ds.time.dt.year.isin([i for i in range(sy, ey+1)]))
+        ss_ds = self.var_objs[var_name].seasonal_per_area_unit
+        ss_ds = ss_ds.sel(time=ss_ds.time.dt.year.isin([i for i in range(sy, ey + 1)]))
+        ss_name = {12: "DJF", 3: "MAM", 6: "JJA", 9: "SON"}
 
         for i, month in enumerate([12, 3, 6, 9]):
             xarr = ss_ds.sel(time=ss_ds.time.dt.month.isin([month]))
@@ -142,21 +146,28 @@ class Model:
             my_cmap = matplotlib.cm.get_cmap(cmap)
 
             data = s
-            title = f"Seasonal trends of {var_name} from {sy}-{ey} using the Mann-Kendall method"
+            title = f"Trends of {var_name} from {sy}-{ey} using the Modified Mann-Kendall method in {ss_name[month]}"
             data.plot.pcolormesh(
                 ax=ax,
                 cmap=my_cmap,
                 cbar_kwargs={"label": VIZ_OPT[var_name]["map_unit"]},
             )
             plt.title(title, fontsize=18)
-    
+            plt.savefig(
+                os.path.join(
+                    "../fig/",
+                    self.model_name,
+                    f"mk-{var_name}-{sy}-{ey}-{ss_name[month]}.png",
+                )
+            )
+
     def plot_regional_annual_trend(self, mode="annual"):
         var_names = self.var_objs.keys()
         # l_roi = list(ROI_DICT.keys())
         l_roi = LIST_REGION
 
         for v_name in var_names:
-            # years = self.var_objs[v_name].years      
+            # years = self.var_objs[v_name].years
 
             f, ax = plt.subplots(figsize=(9, 7), layout="constrained")
             colors = ROI_COLORS
@@ -165,106 +176,265 @@ class Model:
                     arr = self.var_objs[v_name].regional_rate[roi]
                 elif mode == "anomaly":
                     arr = self.var_objs[v_name].regional_rate_anml[roi]
-                
+
                 arr.plot(
-                        ax=ax,
-                        color=colors[roi],
-                        marker="o",
-                        lw=1.5,
-                        ms=4,
-                        markerfacecolor=colors[roi],
-                        markeredgecolor=colors[roi],
-                        label=roi,
-                    )
-                ax.legend(ncol=1, bbox_to_anchor=(0.5, 0.5, 0.7, 0.1), borderaxespad=0.0, loc="center right")
+                    ax=ax,
+                    color=colors[roi],
+                    marker="o",
+                    lw=1.5,
+                    ms=4,
+                    markerfacecolor=colors[roi],
+                    markeredgecolor=colors[roi],
+                    label=roi,
+                )
+                ax.legend(
+                    ncol=1,
+                    bbox_to_anchor=(0.5, 0.5, 0.7, 0.1),
+                    borderaxespad=0.0,
+                    loc="center right",
+                )
                 ax.set_xlabel("Year")
                 ax.set_ylabel(VIZ_OPT[v_name]["line_bar_unit"])
-                ax.set_title(
-                    f"{v_name} - Regional Variation"
-                )
+                ax.set_title(f"{v_name} - Regional Variation")
                 # plt.ylim([2.2, 2.7]) # modified to customize the figure
-                # plt.savefig(os.path.join("../fig/", self.model_name, f"{v_name}-reg-{mode}.png"))
+                plt.savefig(
+                    os.path.join("../fig/", self.model_name, f"{v_name}-reg-{mode}.png")
+                )
 
     def plot_2var_global_annual_trend(self, sy, ey, cv="emiisop", mode="annual"):
-        var_names = self.var_objs.keys()
+        var_names = list(self.var_objs.keys())
+        var_names.remove(cv)
         colors = {
-            "emiisop": "green", "emibvoc": "#ff796c", "emioa": "#4d4d4d",
-            "pr": "darkblue", "rsds": "#ff7f00", "tas": "#e41a1c", 
-            "emiotherbvocs":"darkgreen", "gpp":"#762a83", "npp":"#9970ab", "chepsoa":"#878787", "emipoa":"#000000" }
+            "emiisop": "green",
+            "emibvoc": "#ff796c",
+            "emioa": "#4d4d4d",
+            "pr": "darkblue",
+            "rsds": "#ff7f00",
+            "tas": "#e41a1c",
+            "emiotherbvocs": "darkgreen",
+            "gpp": "#762a83",
+            "npp": "#9970ab",
+            "chepsoa": "#878787",
+            "emipoa": "#000000",
+        }
 
         for v_name in var_names:
             cv_ds = self.var_objs[cv]
             ev_ds = self.var_objs[v_name]
 
             if mode == "annual":
-                x1, y1 = cv_ds.global_rate.sel(year=slice(sy, ey)).year, cv_ds.global_rate.sel(year=slice(sy, ey))
-                x2, y2 = cv_ds.global_rate.sel(year=slice(sy, ey)).year, ev_ds.global_rate.sel(year=slice(sy, ey))
+                x1, y1 = cv_ds.global_rate.sel(
+                    year=slice(sy, ey)
+                ).year, cv_ds.global_rate.sel(year=slice(sy, ey))
+                x2, y2 = cv_ds.global_rate.sel(
+                    year=slice(sy, ey)
+                ).year, ev_ds.global_rate.sel(year=slice(sy, ey))
             elif mode == "anomaly":
-                x1, y1 = cv_ds.global_rate.sel(year=slice(sy, ey)).year, cv_ds.global_rate_anml.sel(year=slice(sy, ey))
-                x2, y2 = cv_ds.global_rate.sel(year=slice(sy, ey)).year, ev_ds.global_rate_anml.sel(year=slice(sy, ey))
+                x1, y1 = cv_ds.global_rate.sel(
+                    year=slice(sy, ey)
+                ).year, cv_ds.global_rate_anml.sel(year=slice(sy, ey))
+                x2, y2 = cv_ds.global_rate.sel(
+                    year=slice(sy, ey)
+                ).year, ev_ds.global_rate_anml.sel(year=slice(sy, ey))
 
-            slope, intercept, r, p, std_err = stats.linregress(y1, y2)
+            # slope, intercept, r, p, std_err = stats.linregress(y1, y2)
+            r, p = stats.pearsonr(y1, y2)
+
+            res1 = pymk.yue_wang_modification_test(y1, alpha=0.05)
+            trend_line1 = np.arange(len(y1)) * res1.slope + res1.intercept
+            res2 = pymk.yue_wang_modification_test(y2, alpha=0.05)
+            trend_line2 = np.arange(len(y2)) * res2.slope + res2.intercept
 
             fig, ax1 = plt.subplots(figsize=(10, 5), layout="constrained")
             axbox = ax1.get_position()
-            ax1.plot(x1, y1, label=cv, linewidth=1.5, marker="o", ms=4, color=colors[cv], markerfacecolor="white", markeredgecolor=colors[cv])
-            ax2=ax1.twinx()
-            ax2.plot(x2, y2, label=v_name, linewidth=1.5, marker="o", ms=4, color=colors[v_name], markerfacecolor="white", markeredgecolor=colors[v_name])
-            
+            ax1.plot(
+                x1,
+                y1,
+                label=cv,
+                linewidth=1.5,
+                marker="o",
+                ms=4,
+                color=colors[cv],
+                markerfacecolor="white",
+                markeredgecolor=colors[cv],
+            )
+            ax1.plot(
+                x1,
+                trend_line1,
+                linewidth=1.5,
+                ls="--",
+                color=colors[cv],
+                markerfacecolor="white",
+                markeredgecolor=colors[cv],
+            )
+            ax2 = ax1.twinx()
+            ax2.plot(
+                x2,
+                y2,
+                label=v_name,
+                linewidth=1.5,
+                marker="o",
+                ms=4,
+                color=colors[v_name],
+                markerfacecolor="white",
+                markeredgecolor=colors[v_name],
+            )
+            ax2.plot(
+                x2,
+                trend_line2,
+                linewidth=1.5,
+                ls="--",
+                color=colors[v_name],
+                markerfacecolor="white",
+                markeredgecolor=colors[v_name],
+            )
+
             ax1.set_xlabel("Year")
-            ax1.set_ylabel(VIZ_OPT[cv]["line_bar_unit"], color=colors[cv], fontweight='bold')
-            ax2.set_ylabel(VIZ_OPT[v_name]["line_bar_unit"], color=colors[v_name], fontweight='bold')  
-            # plt.ylim([250, 650])
+            ax1.set_ylabel(
+                VIZ_OPT[cv]["line_bar_unit"], color=colors[cv], fontweight="bold"
+            )
+            ax2.set_ylabel(
+                VIZ_OPT[v_name]["line_bar_unit"],
+                color=colors[v_name],
+                fontweight="bold",
+            )
             fig.suptitle(f"Annual Global Trend of {cv} - {v_name}")
             fig.legend(
                 loc="center",
                 ncol=2,
                 bbox_to_anchor=[axbox.x0 + 0.5 * axbox.width, axbox.y0 - 0.15],
             )
-            fig.text(0.875, 0.95, f"r = {np.round(r, decimals=3)}", fontsize=9)
-            plt.savefig(os.path.join("../fig/", self.model_name, f"glob-{cv}-{v_name}-{mode}.png"))
-    
-    def plot_2var_regional_annual_trend(self, sy, ey, roi= "SA", cv="emiisop", mode="annual"):
-        var_names = self.var_objs.keys()
+            fig.text(
+                0.875,
+                0.95,
+                f"r = {np.round(r, decimals=3)}\np = {np.round(p, decimals=3)}",
+                fontsize=9,
+            )
+            plt.savefig(
+                os.path.join(
+                    "../fig/", self.model_name, f"glob-{cv}-{v_name}-{mode}.png"
+                )
+            )
+
+    def plot_2var_regional_annual_trend(
+        self, sy, ey, roi="SA", cv="emiisop", mode="annual"
+    ):
+        var_names = list(self.var_objs.keys())
+        var_names.remove(cv)
         # l_roi = list(ROI_DICT.keys())
         l_roi = LIST_REGION
         colors = {
-            "emiisop": "green", "emibvoc": "#ff796c", "emioa": "#4d4d4d",
-            "pr": "darkblue", "rsds": "#ff7f00", "tas": "#e41a1c", 
-            "emiotherbvocs":"darkgreen", "gpp":"#762a83", "npp":"#9970ab", "chepsoa":"#878787", "emipoa":"#000000" }
+            "emiisop": "green",
+            "emibvoc": "#ff796c",
+            "emioa": "#4d4d4d",
+            "pr": "darkblue",
+            "rsds": "#ff7f00",
+            "tas": "#e41a1c",
+            "emiotherbvocs": "darkgreen",
+            "gpp": "#762a83",
+            "npp": "#9970ab",
+            "chepsoa": "#878787",
+            "emipoa": "#000000",
+        }
 
         for roi in l_roi:
             for v_name in var_names:
                 cv_ds = self.var_objs[cv]
                 ev_ds = self.var_objs[v_name]
                 if mode == "annual":
-                    x1, y1 = cv_ds.regional_rate[roi].sel(year=slice(sy, ey)).year, cv_ds.regional_rate[roi].sel(year=slice(sy, ey))
-                    x2, y2 = ev_ds.regional_rate[roi].sel(year=slice(sy, ey)).year, ev_ds.regional_rate[roi].sel(year=slice(sy, ey))
+                    x1, y1 = cv_ds.regional_rate[roi].sel(
+                        year=slice(sy, ey)
+                    ).year, cv_ds.regional_rate[roi].sel(year=slice(sy, ey))
+                    x2, y2 = ev_ds.regional_rate[roi].sel(
+                        year=slice(sy, ey)
+                    ).year, ev_ds.regional_rate[roi].sel(year=slice(sy, ey))
                 elif mode == "anomaly":
-                    x1, y1 = cv_ds.regional_rate_anml[roi].sel(year=slice(sy, ey)).year, cv_ds.regional_rate_anml[roi].sel(year=slice(sy, ey))
-                    x2, y2 = ev_ds.regional_rate_anml[roi].sel(year=slice(sy, ey)).year, ev_ds.regional_rate_anml[roi].sel(year=slice(sy, ey))
+                    x1, y1 = cv_ds.regional_rate_anml[roi].sel(
+                        year=slice(sy, ey)
+                    ).year, cv_ds.regional_rate_anml[roi].sel(year=slice(sy, ey))
+                    x2, y2 = ev_ds.regional_rate_anml[roi].sel(
+                        year=slice(sy, ey)
+                    ).year, ev_ds.regional_rate_anml[roi].sel(year=slice(sy, ey))
 
-                slope, intercept, r, p, std_err = stats.linregress(y1, y2)
+                res1 = pymk.yue_wang_modification_test(y1, alpha=0.05)
+                trend_line1 = np.arange(len(y1)) * res1.slope + res1.intercept
+                res2 = pymk.yue_wang_modification_test(y2, alpha=0.05)
+                trend_line2 = np.arange(len(y2)) * res2.slope + res2.intercept
+                # slope, intercept, r, p, std_err = stats.linregress(y1, y2)
+                r, p = stats.pearsonr(y1, y2)
 
                 fig, ax1 = plt.subplots(figsize=(10, 5), layout="constrained")
                 axbox = ax1.get_position()
-                ax1.plot(x1, y1, label=cv, linewidth=1.5, marker="o", ms=4, color=colors[cv], markerfacecolor="white", markeredgecolor=colors[cv])
-                ax2=ax1.twinx()
-                ax2.plot(x2, y2, label=v_name, linewidth=1.5, marker="o", ms=4, color=colors[v_name], markerfacecolor="white", markeredgecolor=colors[v_name])
-                
+                ax1.plot(
+                    x1,
+                    y1,
+                    label=cv,
+                    linewidth=1.5,
+                    marker="o",
+                    ms=4,
+                    color=colors[cv],
+                    markerfacecolor="white",
+                    markeredgecolor=colors[cv],
+                )
+                ax1.plot(
+                    x1,
+                    trend_line1,
+                    linewidth=1.5,
+                    ls="--",
+                    color=colors[cv],
+                    markerfacecolor="white",
+                    markeredgecolor=colors[cv],
+                )
+                ax2 = ax1.twinx()
+                ax2.plot(
+                    x2,
+                    y2,
+                    label=v_name,
+                    linewidth=1.5,
+                    marker="o",
+                    ms=4,
+                    color=colors[v_name],
+                    markerfacecolor="white",
+                    markeredgecolor=colors[v_name],
+                )
+                ax2.plot(
+                    x2,
+                    trend_line2,
+                    linewidth=1.5,
+                    ls="--",
+                    color=colors[v_name],
+                    markerfacecolor="white",
+                    markeredgecolor=colors[v_name],
+                )
+
                 ax1.set_xlabel("Year")
-                ax1.set_ylabel(VIZ_OPT[cv]["line_bar_unit"], color=colors[cv], fontweight='bold')
-                ax2.set_ylabel(VIZ_OPT[v_name]["line_bar_unit"], color=colors[v_name], fontweight='bold')  
-                # plt.ylim([250, 650])
+                ax1.set_ylabel(
+                    VIZ_OPT[cv]["line_bar_unit"], color=colors[cv], fontweight="bold"
+                )
+                ax2.set_ylabel(
+                    VIZ_OPT[v_name]["line_bar_unit"],
+                    color=colors[v_name],
+                    fontweight="bold",
+                )
                 fig.suptitle(f"{roi} - Annual Variation of {cv} - {v_name}")
                 fig.legend(
                     loc="center",
                     ncol=2,
                     bbox_to_anchor=[axbox.x0 + 0.5 * axbox.width, axbox.y0 - 0.15],
                 )
-                fig.text(0.875, 0.95, f"r = {np.round(r, decimals=3)}", fontsize=9)
-                plt.savefig(os.path.join("../fig/", self.model_name, f"{roi}-{cv}-{v_name}-{mode}.png"))
-    
+                fig.text(
+                    0.875,
+                    0.95,
+                    f"r = {np.round(r, decimals=3)}\np = {np.round(p, decimals=3)}",
+                    fontsize=9,
+                )
+                plt.savefig(
+                    os.path.join(
+                        "../fig/", self.model_name, f"{roi}-{cv}-{v_name}-{mode}.png"
+                    )
+                )
+
+
 class Var:
     var_obj_dict = {
         "emiisop": Cmip6TimeSum,
@@ -282,7 +452,6 @@ class Var:
     processed_dir = "../data/processed_data"
 
     def __init__(self, var_name):
-
         self.var_name = var_name
         self.obj_type = None
         self.multi_models = {}
@@ -291,7 +460,6 @@ class Var:
         self.get_multi_models()
 
     def get_obj_type(self):
-
         self.obj_type = self.var_obj_dict[self.var_name]
 
     def get_model_name(self, path):
@@ -316,17 +484,15 @@ class Var:
         )
 
     def get_multi_models(self):
-
         all_files = glob.glob(os.path.join(VAR_DIR, self.var_name, "*.nc"))
         model_names = sorted(list(set([self.get_model_name(f) for f in all_files])))
 
         multi_models = {}
         for m_name in model_names:
+            print(m_name)
             if "VISIT" not in m_name:
-                print(m_name)
                 l_model = []
                 for f in all_files:
-
                     if m_name in f:
                         l_model.append(xr.open_dataset(f))
 
@@ -336,7 +502,27 @@ class Var:
 
         if self.var_name == "emiisop":
             for visit_case in VISIT_DICT_PATH.keys():
-                multi_models[visit_case] = CMIP6Visit(visit_case, visit_t2cft(VISIT_DICT_PATH[visit_case], case=visit_case), self.var_name)
+                multi_models[visit_case] = CMIP6Visit(
+                    visit_case,
+                    visit_t2cft(VISIT_DICT_PATH[visit_case], case=visit_case),
+                    self.var_name,
+                )
+
+        elif self.var_name == "tas":
+            for visit_case in VISIT_DICT_PATH.keys():
+                multi_models[visit_case] = VisitTAS(
+                    visit_case,
+                    visit_t2cft(VISIT_DICT_PATH[visit_case], case=visit_case),
+                    self.var_name,
+                )
+
+        elif self.var_name == "rsds":
+            for visit_case in VISIT_DICT_PATH.keys():
+                multi_models[visit_case] = VisitRSDS(
+                    visit_case,
+                    visit_t2cft(VISIT_DICT_PATH[visit_case], case=visit_case),
+                    self.var_name,
+                )
         self.multi_models = multi_models
 
     def plot_regional_map(self):
@@ -359,12 +545,20 @@ class Var:
             data.plot.pcolormesh(
                 ax=ax,
                 cmap="RdPu",
-                cbar_kwargs={"label": VIZ_OPT[self.var_name]["map_unit"]},  
+                cbar_kwargs={"label": VIZ_OPT[self.var_name]["map_unit"]},
             )
             plt.title(f"{l_m_name[0]} - {r} ", fontsize=18)
 
     def plot_global_map(self, bg_color="snow", cmap1="YlGnBu", cmap2="Spectral_r"):
-        years = [1850, 2014, "mean", "change", "changePD", "PD", "PI"]                        #change to 1901 if including VISIT
+        years = [
+            1901,
+            2014,
+            "mean",
+            "change",
+            "changePD",
+            "PD",
+            "PI",
+        ]  # change to 1901 if including VISIT
         l_m_name = self.multi_models.keys()
         i = 0
         for m_name in l_m_name:
@@ -390,28 +584,36 @@ class Var:
                 my_cmap2.set_under(bg_color)
 
                 if y == "change":
-                    data = ds.annual_per_area_unit.isel(
-                        year=-1
-                    ) - ds.annual_per_area_unit.isel(year=0)
-                    title = f"{m_name} - Change from 1850 - 2014"
+                    data = ds.annual_per_area_unit.sel(
+                        year=2014
+                    ) - ds.annual_per_area_unit.sel(year=1901)
+                    title = f"{m_name} - Change from 1901 - 2014"
                     cmap = my_cmap1
                 elif y == "changePD":
                     data = ds.annual_per_area_unit.sel(year=slice(1990, 2014)).mean(
                         "year"
-                    ) - ds.annual_per_area_unit.sel(year=slice(1850, 1870)).mean("year")
+                    ) - ds.annual_per_area_unit.sel(year=slice(1901, 1920)).mean("year")
                     title = f"{m_name} - Change between PD and PI"
                     cmap = my_cmap1
                 elif y == "PD":
-                    data = ds.annual_per_area_unit.sel(year=slice(1990, 2014)).mean("year") 
+                    data = ds.annual_per_area_unit.sel(year=slice(1990, 2014)).mean(
+                        "year"
+                    )
                     title = f"{m_name} - {self.var_name} at present day (PD, 1990-2014)"
                     cmap = my_cmap2
                 elif y == "PI":
-                    data = ds.annual_per_area_unit.sel(year=slice(1850, 1870)).mean("year") 
-                    title = f"{m_name} - {self.var_name} at pre-industry (PI, 1850-1870)"
+                    data = ds.annual_per_area_unit.sel(year=slice(1901, 1920)).mean(
+                        "year"
+                    )
+                    title = (
+                        f"{m_name} - {self.var_name} at pre-industry (PI, 1901-1920)"
+                    )
                     cmap = my_cmap2
                 elif y == "mean":
-                    data = ds.annual_per_area_unit.mean("year")
-                    title = f"{m_name} - Mean from 1850 - 2014"
+                    data = ds.annual_per_area_unit.sel(year=slice(1901, 2014)).mean(
+                        "year"
+                    )
+                    title = f"{m_name} - Mean from 1901 - 2014"
                     cmap = my_cmap2
                 else:
                     data = ds.annual_per_area_unit.sel(year=y)
@@ -420,10 +622,10 @@ class Var:
                 data.plot.pcolormesh(
                     ax=ax,
                     cmap=cmap,
-                    # # levels=21,    #customize for individual variable if needed
-                    vmin= 0,
-                    vmax= 35,
-                    extend='both',
+                    # levels=15,  # customize for individual variable if needed
+                    # vmin=0.001,
+                    # vmax=3.5,
+                    extend="both",
                     cbar_kwargs={"label": VIZ_OPT[self.var_name]["map_unit"]},
                 )
                 plt.title(title, fontsize=18)
@@ -431,7 +633,7 @@ class Var:
                     os.path.join("../fig/", self.var_name, f"{m_name}-{y}-map.png")
                 )
 
-    def plot_global_monthly_map(self, bg_color="snow", cmap="RdPu"):  
+    def plot_global_monthly_map(self, bg_color="snow", cmap="RdPu"):
         indexs = [1956, 1959, 1962, 1965]
         l_m_name = self.multi_models.keys()
         i = 0
@@ -467,7 +669,21 @@ class Var:
 
     def plot_global_annual_trend(self, mode="annual"):
         model_names = self.multi_models.keys()
-        colors = {"CESM2-WACCM": "#7fc97f", "GFDL-ESM4": "#1f78b4", "GISS-E2-1-G": "#ff7f00", "NorESM2-LM": "#33a02c", "UKESM1-0-LL": "#984ea3", "VISIT_ORG": "#e41a1c", "VISIT_CASE1": "#e41a1c", "VISIT_CASE2": "#e41a1c", "VISIT_CASE3": "#e41a1c"}
+        colors = {
+            "CESM2-WACCM": "#33a02c",
+            "GFDL-ESM4": "#878787",
+            "GISS-E2-1-G": "#2166ac",
+            "NorESM2-LM": "#7fc97f",
+            "UKESM1-0-LL": "#984ea3",
+            "VISIT_ORG": "#fb9a99",
+            "VISIT_CASE1": "#e41a1c",
+            "VISIT_CASE2": "#ff7f00",
+            "VISIT_CASE3": "#f9c74f",
+            "VISIT_FSM1": "#b15928",
+            "VISIT_TAS": "#e41a1c",
+            "VISIT_PR": "#e41a1c",
+            "VISIT_RSDS": "#e41a1c",
+        }
         fig, ax = plt.subplots(figsize=(10, 6.5), layout="constrained")
         axbox = ax.get_position()
         for name in model_names:
@@ -479,20 +695,30 @@ class Var:
                 # trend_line2 = np.arange(len(y2)) * res2.slope + res2.intercept
             elif mode == "y10":
                 x1, y1 = cmip6_obj.y10_rate["years"], cmip6_obj.y10_rate["y10_rate"]
-                x2, y2 = cmip6_obj.years, cmip6_obj.global_rate
+                # x2, y2 = cmip6_obj.years, cmip6_obj.global_rate
             elif mode == "anomaly":
                 x1, y1 = cmip6_obj.years, cmip6_obj.global_rate_anml
                 # x2, y2 = cmip6_obj.global_rate["year"].sel(year=slice(1980, 2014)), cmip6_obj.global_rate.sel(year=slice(1980, 2014))
                 # res2 = pymk.yue_wang_modification_test(y2, alpha=0.05)
                 # trend_line2 = np.arange(len(y2)) * res2.slope + res2.intercept
 
-            ax.plot(x1, y1, label=name, linewidth=1.5, marker="o", ms=4, color=colors[name], markerfacecolor="white", markeredgecolor=colors[name])
+            ax.plot(
+                x1,
+                y1,
+                label=name,
+                linewidth=1.5,
+                marker="o",
+                ms=4,
+                color=colors[name],
+                markerfacecolor="white",
+                markeredgecolor=colors[name],
+            )
             # ax.plot(x2, trend_line2, linewidth=1.5, ls="--", color=colors[name])
             # print(name)
             # print(pymk.yue_wang_modification_test(y2, alpha=0.05))
 
         ax.set_xlabel("Year")
-        ax.set_ylabel(VIZ_OPT[self.var_name]["line_bar_unit"])  
+        ax.set_ylabel(VIZ_OPT[self.var_name]["line_bar_unit"])
         # plt.ylim([250, 650])
         # ax.set_title(f"Annual Global Trend of {self.var_name}")
         ax.legend(
@@ -502,7 +728,6 @@ class Var:
         )
 
     def plot_regional_annual_trend(self, mode="annual"):
-        
         model_names = self.multi_models.keys()
         roi_ds = {}
         for roi in LIST_REGION:
@@ -519,16 +744,38 @@ class Var:
 
     @staticmethod
     def plot_annual_trend(l_x, l_y, l_name, var_name, roi, unit=""):
-        colors = {"CESM2-WACCM": "#7fc97f", "GFDL-ESM4": "#1f78b4", "GISS-E2-1-G": "#ff7f00", "NorESM2-LM": "#33a02c", "UKESM1-0-LL": "#984ea3", "VISIT_ORG": "#e41a1c", "VISIT_CASE1": "#e41a1c", "VISIT_CASE2": "#e41a1c", "VISIT_CASE3": "#e41a1c"}
+        colors = {
+            "CESM2-WACCM": "#33a02c",
+            "GFDL-ESM4": "#878787",
+            "GISS-E2-1-G": "#2166ac",
+            "NorESM2-LM": "#7fc97f",
+            "UKESM1-0-LL": "#984ea3",
+            "VISIT_ORG": "#fb9a99",
+            "VISIT_CASE1": "#e41a1c",
+            "VISIT_CASE2": "#ff7f00",
+            "VISIT_CASE3": "#f9c74f",
+            "VISIT_FSM1": "#b15928",
+            "VISIT_TAS": "#e41a1c",
+            "VISIT_PR": "#e41a1c",
+            "VISIT_RSDS": "#e41a1c",
+        }
         fig, ax = plt.subplots(figsize=(10, 6.5), layout="constrained")
         axbox = ax.get_position()
         for x, y, n in zip(l_x, l_y, l_name):
-            ax.plot(x, y, label=n, linewidth=1.5, marker="o", ms=4, color=colors[n], markerfacecolor="white", markeredgecolor=colors[n])
+            ax.plot(
+                x,
+                y,
+                label=n,
+                linewidth=1.5,
+                marker="o",
+                ms=4,
+                color=colors[n],
+                markerfacecolor="white",
+                markeredgecolor=colors[n],
+            )
         ax.set_xlabel("Year")
         ax.set_ylabel(VIZ_OPT[var_name]["line_bar_unit"])
-        ax.set_title(
-            f"{roi} - Annual Trend of {var_name}"
-        )
+        ax.set_title(f"{roi} - Annual Trend of {var_name}")
         # plt.ylim([-12.5, 7.5])
         ax.legend(
             loc="center",
@@ -536,7 +783,6 @@ class Var:
             bbox_to_anchor=[axbox.x0 + 0.5 * axbox.width, axbox.y0 - 0.25],
         )
         plt.savefig(os.path.join("../fig/", var_name, f"{roi}-a-anml.png"))
-
 
     def plot_global_seasonal_trend(self, mode="abs"):
         model_names = self.multi_models.keys()
@@ -572,9 +818,7 @@ class Var:
         ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
         ax.set_xlabel("Year")
         ax.set_ylabel(VIZ_OPT[var_name]["line_bar_unit"])
-        ax.set_title(
-            f"{l_name} - Seasonal Change in {var_name}"
-        )
+        ax.set_title(f"{l_name} - Seasonal Change in {var_name}")
         # plt.ylim([2.2, 2.7]) # modified ylim if needed
         plt.savefig(os.path.join("../fig/", var_name, f"{l_name}-ss-trend.png"))
 
@@ -627,22 +871,22 @@ class Var:
         )
         # ax.set_ylim(VIZ_OPT[self.var_name]["bar_ylim"])
         ax.set_ylabel(VIZ_OPT[self.var_name]["line_bar_unit"])
-    
+
     def plot_contribution(self):
-        years = [1901, 2014, "mean"]                #modified periods if needed
+        years = [1901, 2014, "mean"]  # modified periods if needed
 
         for y in years:
             self.plot_stacked_bar(y)
 
     def plot_hovmoller(self, bg_color="snow", cmap="RdYlBu_r"):
-        periods = [                                #modified periods if needed
-            (1850, 1864),
+        periods = [  # modified periods if needed
+            (1901, 1915),
             (1975, 1989),
             (2000, 2014),
         ]
         l_m_names = list(self.multi_models.keys())
-        my_cmap = matplotlib.cm.get_cmap(cmap)  
-        my_cmap.set_under(bg_color) 
+        my_cmap = matplotlib.cm.get_cmap(cmap)
+        my_cmap.set_under(bg_color)
         for m_name in l_m_names:
             org_ds = self.multi_models[m_name]
             for p in periods:
@@ -651,29 +895,29 @@ class Var:
                 )
                 ds = ds.sel(lat=np.arange(-90, 90, 5), method="nearest")
                 if "VISIT" in m_name:
-                    xr.plot.contourf(ds,
-                    x = ds.dims[0],
-                    y = ds.dims[1],
-                    figsize=(16, 5),  
-                    cmap=my_cmap,  
-                    levels=11, 
-                    vmin=0.001,  
-                    vmax=1.25,  
-                    cbar_kwargs={"label": VIZ_OPT[self.var_name]["holv_unit"]},  
-                )
-                else: 
+                    xr.plot.contourf(
+                        ds,
+                        x=ds.dims[0],
+                        y=ds.dims[1],
+                        figsize=(16, 5),
+                        cmap=my_cmap,
+                        levels=15,
+                        vmin=0.001,
+                        vmax=1.25,
+                        cbar_kwargs={"label": VIZ_OPT[self.var_name]["holv_unit"]},
+                    )
+                else:
                     ds.plot.contourf(
-                    figsize=(16, 5),  
-                    cmap=my_cmap,  
-                    levels=11, 
-                    vmin=0.001,  
-                    vmax=0.25,  
-                    cbar_kwargs={"label": VIZ_OPT[self.var_name]["holv_unit"]},  
-                )
-                plt.xticks(rotation=45, ha="right")  
+                        figsize=(16, 5),
+                        cmap=my_cmap,
+                        levels=15,
+                        vmin=0.001,
+                        vmax=0.25,
+                        cbar_kwargs={"label": VIZ_OPT[self.var_name]["holv_unit"]},
+                    )
+                plt.xticks(rotation=45, ha="right")
                 plt.title(f"{m_name} - {p}", fontsize=18)
                 plt.savefig(os.path.join("../fig/", self.var_name, f"{m_name}-{p}.png"))
-
 
     # def save_2_nc(self):
 
@@ -689,8 +933,9 @@ class Var:
     #             os.path.join(self.processed_dir, "annual", f"{name}_{self.var_name}.nc")
     #         )
 
-    def plot_corr(self, cv="emiotherbvocs", times={"annual": "year"}, sy="1850", ey="2014"): 
-
+    def plot_corr(
+        self, cv="emiotherbvocs", times={"annual": "year"}, sy="1850", ey="2014"
+    ):
         model_names = list(self.multi_models.keys())
         i = 0
         cv_multi_model = Var(cv)
@@ -711,15 +956,31 @@ class Var:
                 cv_ds = cv_multi_model.multi_models[name]
                 ev_ds = ev_multi_model.multi_models[name]
                 if t == "monthly":
-                    corr = xr.corr(cv_ds.monthly_per_area_unit, ev_ds.monthly_per_area_unit, dim=[times[t]])
-                    p = xs.pearson_r_p_value(cv_ds.monthly_per_area_unit, ev_ds.monthly_per_area_unit, dim=[times[t]])                                                    
-                    sig = p.where(p < 0.05)                                                                                                         
-                    X, Y = np.meshgrid(p.lon, p.lat)                                                                                                
+                    corr = xr.corr(
+                        cv_ds.monthly_per_area_unit,
+                        ev_ds.monthly_per_area_unit,
+                        dim=[times[t]],
+                    )
+                    p = xs.pearson_r_p_value(
+                        cv_ds.monthly_per_area_unit,
+                        ev_ds.monthly_per_area_unit,
+                        dim=[times[t]],
+                    )
+                    sig = p.where(p < 0.05)
+                    X, Y = np.meshgrid(p.lon, p.lat)
                 else:
-                    corr = xr.corr(cv_ds.annual_per_area_unit.sel(year=slice(sy, ey)), ev_ds.annual_per_area_unit.sel(year=slice(sy, ey)), dim=[times[t]])                
-                    p = xs.pearson_r_p_value(cv_ds.annual_per_area_unit.sel(year=slice(sy, ey)), ev_ds.annual_per_area_unit.sel(year=slice(sy, ey)), dim=[times[t]])      
-                    sig = p.where(p < 0.05)                                                                                                         
-                    X, Y = np.meshgrid(p.lon, p.lat)                                                                                                
+                    corr = xr.corr(
+                        cv_ds.annual_per_area_unit.sel(year=slice(sy, ey)),
+                        ev_ds.annual_per_area_unit.sel(year=slice(sy, ey)),
+                        dim=[times[t]],
+                    )
+                    p = xs.pearson_r_p_value(
+                        cv_ds.annual_per_area_unit.sel(year=slice(sy, ey)),
+                        ev_ds.annual_per_area_unit.sel(year=slice(sy, ey)),
+                        dim=[times[t]],
+                    )
+                    sig = p.where(p < 0.05)
+                    X, Y = np.meshgrid(p.lon, p.lat)
                 # corr.plot()
                 corr.plot.pcolormesh(
                     ax=ax,
@@ -729,72 +990,83 @@ class Var:
                     cmap="RdBu_r",
                     cbar_kwargs={"label": "Pearson Corr (r)"},
                 )
-                ax.pcolor(                                                                                                                          
-                    X, Y, sig, hatch='//', alpha=0
-                )
+                ax.pcolor(X, Y, sig, hatch="//", alpha=0)
                 fig_title = f"{t} - {name} - {cv} - {self.var_name} ({sy} - {ey})"
                 plt.title(fig_title, fontsize=18)
                 plt.savefig(os.path.join("../plot_corr", t, f"{fig_title}.png"))
 
-    def plot_contribution_global_map(self, cv= "chepsoa", ev= "emioa" ,cmap="YlGnBu", bg_color="#ffffe5"):   #for checking
-            years = ["mean", "PD", "PI"]
-            l_m_name = self.multi_models.keys()
-            i = 0
-            cv_multi_model = Var(cv)
-            ev_multi_model = Var(ev)
-            for m_name in l_m_name:
-                for y in years:
-                    i = i + 1
-                    fig = plt.figure(1 + i, figsize=(30, 13))
-                    ax = plt.subplot(1, 1, 1, projection=ccrs.PlateCarree())
-                    ax.coastlines()
-                    ax.gridlines(
-                        xlocs=range(-180, 180, 40),
-                        ylocs=range(-80, 81, 20),
-                        draw_labels=True,
-                        linewidth=1,
-                        edgecolor="dimgrey",
+    def plot_contribution_global_map(
+        self, cv="chepsoa", ev="emioa", cmap="YlGnBu", bg_color="#ffffe5"
+    ):  # for checking
+        years = ["mean", "PD", "PI"]
+        l_m_name = self.multi_models.keys()
+        i = 0
+        cv_multi_model = Var(cv)
+        ev_multi_model = Var(ev)
+        for m_name in l_m_name:
+            for y in years:
+                i = i + 1
+                fig = plt.figure(1 + i, figsize=(30, 13))
+                ax = plt.subplot(1, 1, 1, projection=ccrs.PlateCarree())
+                ax.coastlines()
+                ax.gridlines(
+                    xlocs=range(-180, 180, 40),
+                    ylocs=range(-80, 81, 20),
+                    draw_labels=True,
+                    linewidth=1,
+                    edgecolor="dimgrey",
+                )
+
+                my_cmap = matplotlib.cm.get_cmap(cmap)
+                my_cmap.set_under(bg_color)
+
+                cv_ds = cv_multi_model.multi_models[m_name]
+                ev_ds = ev_multi_model.multi_models[m_name]
+
+                if y == "mean":
+                    cv_data = cv_ds.annual_per_area_unit.mean("year")
+                    ev_data = ev_ds.annual_per_area_unit.mean("year")
+                    title = (
+                        f"{m_name} - Mean contribution of {cv} to {ev} from 1850 - 2014"
                     )
+                    cmap = my_cmap
+                elif y == "PD":
+                    cv_data = cv_ds.annual_per_area_unit.sel(
+                        year=slice(1990, 2014)
+                    ).mean("year")
+                    ev_data = ev_ds.annual_per_area_unit.sel(
+                        year=slice(1990, 2014)
+                    ).mean("year")
+                    title = f"{m_name} - Contribution of {cv} to {ev} at present day (PD, 1990-2014)"
+                    cmap = my_cmap
+                elif y == "PI":
+                    cv_data = cv_ds.annual_per_area_unit.sel(
+                        year=slice(1850, 1870)
+                    ).mean("year")
+                    ev_data = ev_ds.annual_per_area_unit.sel(
+                        year=slice(1990, 2014)
+                    ).mean("year")
+                    title = f"{m_name} - Contribution of {cv} to {ev} at pre-industry (PI, 1850-1870)"
+                    cmap = my_cmap
 
-                    my_cmap = matplotlib.cm.get_cmap(cmap)
-                    my_cmap.set_under(bg_color)
+                data = (cv_data / ev_data) * 100
+                data.plot.pcolormesh(
+                    ax=ax,
+                    cmap=cmap,
+                    levels=11,
+                    vmin=0,
+                    vmax=100,
+                    extend="both",
+                    cbar_kwargs={"label": "%"},
+                )
+                plt.title(title, fontsize=24)
+                plt.savefig(
+                    os.path.join("../fig/", cv, f"{m_name}-{y}-{cv}-frac-map.png")
+                )
 
-                    cv_ds = cv_multi_model.multi_models[m_name]
-                    ev_ds = ev_multi_model.multi_models[m_name]
 
-                    if y == "mean":
-                        cv_data = cv_ds.annual_per_area_unit.mean("year")
-                        ev_data = ev_ds.annual_per_area_unit.mean("year")
-                        title = f"{m_name} - Mean contribution of {cv} to {ev} from 1850 - 2014"
-                        cmap = my_cmap
-                    elif y == "PD":
-                        cv_data = cv_ds.annual_per_area_unit.sel(year=slice(1990, 2014)).mean("year") 
-                        ev_data = ev_ds.annual_per_area_unit.sel(year=slice(1990, 2014)).mean("year")
-                        title = f"{m_name} - Contribution of {cv} to {ev} at present day (PD, 1990-2014)"
-                        cmap = my_cmap
-                    elif y == "PI":
-                        cv_data = cv_ds.annual_per_area_unit.sel(year=slice(1850, 1870)).mean("year")
-                        ev_data = ev_ds.annual_per_area_unit.sel(year=slice(1990, 2014)).mean("year")
-                        title = f"{m_name} - Contribution of {cv} to {ev} at pre-industry (PI, 1850-1870)"
-                        cmap = my_cmap
-
-                    data = (cv_data/ev_data)*100
-                    data.plot.pcolormesh(
-                        ax=ax,
-                        cmap=cmap,
-                        levels= 11,
-                        vmin= 0,
-                        vmax= 100,
-                        extend='both',
-                        cbar_kwargs={"label": "%"},
-                    )
-                    plt.title(title, fontsize=24)
-                    plt.savefig(
-                        os.path.join("../fig/", cv, f"{m_name}-{y}-{cv}-frac-map.png")
-                    )
 class Land:
     def __init__(self, model_name="UKESM1-0-LL", mon_type="Emon") -> None:
-
         self.model_name = model_name
         self.mon_type = mon_type
 
@@ -812,7 +1084,6 @@ class Land:
         self.clip_2_roi()
 
     def get_ds_area(self):
-
         ds_area = [xr.open_dataset(f) for f in AREA_LIST if self.model_name in f][0]
         ds_sftlf = [xr.open_dataset(f) for f in SFLTF_LIST if self.model_name in f][0]
 
@@ -822,7 +1093,6 @@ class Land:
         self.ds_area = self.ds_sftlf * ds_area * 1e-2
 
     def extract_merge_land_type(self):
-
         all_nc = glob.glob(
             os.path.join(LAND_DIR, self.model_name, self.mon_type, "*.nc")
         )
@@ -833,7 +1103,6 @@ class Land:
             "fracLut"
         ) if "fracLut" in self.land_type else self.land_type
         for ltype in self.land_type:
-
             ltype_ds = []
             list_nc = [f for f in all_nc if self.mon_type in f and ltype in f]
 
@@ -843,10 +1112,8 @@ class Land:
             self.org_cell_objs[ltype] = xr.concat(ltype_ds, dim=DIM_TIME)
 
     def cal_area_weighted_cell(self):
-
         ds_area = copy.deepcopy(self.ds_area[VAR_AREA])
         for ltype in self.land_type:
-
             reindex_ltype = self.org_cell_objs[ltype][ltype].reindex_like(
                 self.ds_area, method="nearest", tolerance=0.01
             )
@@ -862,7 +1129,6 @@ class Land:
         land_types = sorted(list(self.org_cell_objs.keys()))
 
         for i, roi in enumerate(ROI_DICT.keys()):
-
             self.roi_ltype[roi] = {}
 
             ds_area = copy.deepcopy(self.ds_area[VAR_AREA])
@@ -881,7 +1147,6 @@ class Land:
             ax = plt.subplot(1, 1, 1)
 
             for ltype in land_types:
-
                 ds = copy.deepcopy(self.area_weighted_cell_obj[ltype])
                 ds = ds.rio.set_spatial_dims("lon", "lat", inplace=True)
                 self.roi_ltype[roi][ltype] = (
@@ -892,7 +1157,8 @@ class Land:
                         maxy=ROI_DICT[roi]["max_lat"],
                         # crs=self.crs,
                     ).sum(["lat", "lon"])
-                    / self.roi_area[roi] * 1e2
+                    / self.roi_area[roi]
+                    * 1e2
                 )
                 self.roi_ltype[roi][ltype].sel(
                     time=self.roi_ltype[roi][ltype].time.dt.month.isin([12])
@@ -903,7 +1169,7 @@ class Land:
                 fontsize="small",
                 loc="upper left",
                 ncol=1,
-                bbox_to_anchor=(1.0,0.72),
+                bbox_to_anchor=(1.0, 0.72),
             )
             ax.set_xlabel("Year")
             ax.set_ylabel("(%)")
@@ -943,24 +1209,28 @@ class Land:
             cbar_kwargs={"label": "$m^{2}/year$"},
         )
         plt.title(title, fontsize=18)
-        plt.savefig(os.path.join("../fig/", self.model_name, f"mk-{ltype}-{sy}-{ey}.png"))
-    
+        plt.savefig(
+            os.path.join("../fig/", self.model_name, f"mk-{ltype}-{sy}-{ey}.png")
+        )
+
     def plot_global_annual_trend(self):
         land_types = sorted(list(self.org_cell_objs.keys()))
         total_larea = self.ds_area.sum(dim=[DIM_LAT, DIM_LON])["areacella"]
-        fig, ax = plt.subplots(figsize=(4.5, 4), layout="constrained")   
+        fig, ax = plt.subplots(figsize=(4.5, 4), layout="constrained")
         for ltype in land_types:
             ds = self.area_weighted_cell_obj[ltype]
             annual_ds = ds.sel(time=ds.time.dt.month.isin([12]))
             annual_rate = (annual_ds.sum(dim=[DIM_LAT, DIM_LON])) / total_larea * 1e2
-            annual_rate.plot(ax = ax, label=ltype, linewidth=1.5) 
+            annual_rate.plot(ax=ax, label=ltype, linewidth=1.5)
             plt.title("Annual changes of global land-use types")
             ax.set_xlabel("Year")
-            ax.set_ylabel("(%)") 
+            ax.set_ylabel("(%)")
             ax.legend(
                 fontsize="small",
                 loc="upper left",
                 ncol=1,
-                bbox_to_anchor=(1.0,0.7),
+                bbox_to_anchor=(1.0, 0.7),
             )
+
+
 # %%

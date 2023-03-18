@@ -1,4 +1,4 @@
-#%%
+# %%
 import xarray as xr
 from const import *
 import numpy as np
@@ -14,7 +14,7 @@ import geopandas as gpd
 def clip_region_mask(ds, region_name="SEA"):
     # print(region_name)
 
-    region_mask = regionmask.defined_regions.giorgi[[region_name]]
+    region_mask = regionmask.defined_regions.srex[[region_name]]
     gdf = gpd.GeoDataFrame([1], geometry=region_mask.polygons, crs=WORLD_SHP.crs)
 
     return ds.rio.clip(gdf.geometry, crs=gdf.crs)
@@ -143,7 +143,6 @@ def cal_monthly_emi(all_ds_dict, var=VAR_ISOP):
 
     month_emi = {}
     for m_name in l_m_name:
-
         print(m_name)
         model = all_ds_dict[m_name]
         month_days = get_month_days(model)
@@ -308,7 +307,7 @@ def resample(ds):
 
 def y2p(p):
     s, e = p
-    ys = 1850
+    ys = 1901
 
     m_s = (s - ys) * 12
     m_e = (e - ys + 1) * 12 - 1

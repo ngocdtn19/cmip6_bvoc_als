@@ -1,4 +1,4 @@
-#%%
+# %%
 import glob
 import os
 import math
@@ -7,7 +7,7 @@ import regionmask
 import random
 
 
-get_colors = lambda n: ["#%06x" % random.randint(0, 0xFFFFFF) for _ in range(n)]
+# get_colors = lambda n: ["#%06x" % random.randint(0, 0xFFFFFF) for _ in range(n)]
 
 
 DIM_TIME = "time"
@@ -30,17 +30,43 @@ KG_2_TG = 1e-9
 KG_2_PG = 1e-12
 K_2_C = 273.15
 
-MG_2_G = 1e-6
-MG_2_TG = 1e-18
+MG_2_G = 1e-6  # convert from micro gram to gram
+MG_2_TG = 1e-18  # convert from micro gram to Teragram
 # DEG_2_M2 = 55500**2
 
 
-LIST_REGION = ["SEA", "EAS"]
-REGION = regionmask.defined_regions.giorgi
+# LIST_REGION = ["SEA", "EAS"]
+REGION = regionmask.defined_regions.srex
 LIST_REGION = [REGION.regions[i].abbrev for i in REGION.regions.keys()]
-LIST_COLOR = get_colors(len(LIST_REGION))
-
-
+# LIST_COLOR = get_colors(len(LIST_REGION))
+LIST_COLOR = [
+    "#ff5005",
+    "#ffe100",
+    "#ffff80",
+    "#990000",
+    "#740aff",
+    "#e0ff66",
+    "#00998f",
+    "#5ef1f2",
+    "#ff0010",
+    "#426600",
+    "#ffa8bb",
+    "#ffa405",
+    "#003380",
+    "#c20088",
+    "#9dcc00",
+    "#8f7c00",
+    "#94ffb5",
+    "#808080",
+    "#ffcc99",
+    "#2bce48",
+    "#005c31",
+    "#191919",
+    "#4c005c",
+    "#993f00",
+    "#0075dc",
+    "#f0a3ff",
+]
 
 
 ROI_COLORS = {roi: color for roi, color in zip(LIST_REGION, LIST_COLOR)}
@@ -59,7 +85,7 @@ ROI_DICT = {
 
 VIZ_OPT = {
     "emiisop": {
-        "map_unit": "[$gC/m^{2}/year$]",  # cmap1="RdBu_r", cmap2="RdPu"
+        "map_unit": "[$gC/m^{2}/year$]",  # cmap1="RdBu_r",bg_color="#053061"/ bg_color="#f0f0f0", cmap2="tab20c_r"
         "map_vmin": 0,
         "map_vmax": 40,
         "map_levels": 17,
@@ -174,10 +200,15 @@ COLOR_STACK_BAR = [
 ]
 
 VISIT_DICT_PATH = {
-    "VISIT_ORG": "../data/VISIT/visit_20160105_BVOCisprn.nc",
-    "VISIT_CASE1": "../data/VISIT/emiisop_AERmon_VISIT-org_historical_r1i1p1f1_gn_185001-201412.nc",
+    # "VISIT_ORG": "../data/VISIT/visit_20160105_BVOCisprn.nc",
+    # "VISIT_CASE1": "../data/VISIT/emiisop_AERmon_VISIT-org_historical_r1i1p1f1_gn_185001-201412.nc",
     "VISIT_CASE2": "../data/VISIT/emiisop_AERmon_VISIT-EFtropic_historical_r1i1p1f1_gn_185001-201412.nc",
     "VISIT_CASE3": "../data/VISIT/emiisop_AERmon_VISIT-CO2inhi_historical_r1i1p1f1_gn_185001-201412.nc",
+    # "VISIT_FSM0": "../data/VISIT/emiisop_AERmon_VISIT-fsm0_historical_r1i1p1f1_gn_185001-201412.nc",
+    # "VISIT_FSM1": "../data/VISIT/emiisop_AERmon_VISIT-fsm1_historical_r1i1p1f1_gn_185001-201412.nc",
+    # "VISIT_TAS": "../data/VISIT/visit_20230220_BVOC0_ISM3a_G3E5-ev-hist_tas.nc",
+    # "VISIT_RSDS": "../data/VISIT/visit_20230220_BVOC0_ISM3a_G3E5-ev-hist_rsds.nc",
+    # "VISIT_PR": "../data/VISIT/visit_20230220_BVOC0_ISM3a_G3E5-ev-hist_pr.nc",
 }
 
 TOPDOWN_DIR = "../data/topdown"
