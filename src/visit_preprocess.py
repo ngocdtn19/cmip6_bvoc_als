@@ -141,14 +141,6 @@ class CMIP6Visit(CMIP6Var):
         super().__init__(model_name, org_ds_var, var_name)
         self.cal_y10_rate()
 
-    def cal_years(self):
-        self.years = list(set(t.year for t in self.org_ds_var[DIM_TIME].values))
-
-    def get_ds_area(self):
-        for f in AREA_LIST:
-            if "VISIT" in f:
-                self.ds_area = xr.open_dataset(f)
-
     def get_ds_sftlf(self):
         return
 
@@ -168,10 +160,6 @@ class CMIP6Visit(CMIP6Var):
     def cal_annual_ds(self):
         ds = self.monthly_ds
         self.annual_ds = ds.groupby(ds.time.dt.year).sum(skipna=True)
-
-    def cal_glob_rate(self):
-        self.global_rate = self.annual_ds.sum(dim=[DIM_LAT, DIM_LON])
-        self.global_rate_anml = self.global_rate - self.global_rate.mean(skipna=True)
 
     def cal_y10_rate(self):
         y10 = []
@@ -194,14 +182,6 @@ class CMIP6Visit(CMIP6Var):
 class VisitTAS(CMIP6Var):
     def __init__(self, model_name, org_ds_var, var_name):
         super().__init__(model_name, org_ds_var, var_name)
-
-    def cal_years(self):
-        self.years = list(set(t.year for t in self.org_ds_var[DIM_TIME].values))
-
-    def get_ds_area(self):
-        for f in AREA_LIST:
-            if "VISIT" in f:
-                self.ds_area = xr.open_dataset(f)
 
     def cal_monthly_ds(self):
         self.monthly_ds = copy.deepcopy(self.org_ds_var[self.var_name])
@@ -241,10 +221,6 @@ class VisitTAS(CMIP6Var):
             self.regional_rate_anml[roi] = (
                 self.regional_rate[roi] - self.regional_mean_1850_2014[roi]
             )
-
-    def cal_seasonal_ds(self):
-        ds = self.monthly_ds
-        self.seasonal_ds = ds.resample(time="QS-DEC").mean(skipna=True)
 
     def cal_global_seasonal_rate(self):
         ds = self.seasonal_ds

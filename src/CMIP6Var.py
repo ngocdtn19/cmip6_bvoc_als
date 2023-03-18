@@ -68,19 +68,21 @@ class CMIP6Var:
         self.cal_annual_ds()
         self.cal_annual_per_area_unit()
 
-        # self.cal_seasonal_ds()
-        # self.cal_seasonal_per_area_unit()
-        # self.cal_global_seasonal_rate()
+        self.cal_seasonal_ds()
+        self.cal_seasonal_per_area_unit()
+        self.cal_global_seasonal_rate()
 
-        # self.cal_glob_rate()
-        # self.cal_reg_ds_rate()
+        self.cal_glob_rate()
+        self.cal_reg_ds_rate()
 
     def cal_years(self):
         self.years = list(set(t.year for t in self.org_ds_var[DIM_TIME].values))
 
     def get_ds_area(self):
         for f in AREA_LIST:
-            if self.model_name in f:
+            # only compare 5 first characters of the model name bc we have n VISIT model test an
+            # len ("VISIT")  = 5
+            if self.model_name[:5] in f:
                 self.ds_area = xr.open_dataset(f)
 
     def get_ds_sftlf(self):
