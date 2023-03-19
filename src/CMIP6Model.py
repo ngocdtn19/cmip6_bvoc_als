@@ -13,22 +13,32 @@ import xskillscore as xs
 sns.set_style("ticks")
 
 
-class Model:
-    var_obj_dict = {
-        "emiisop": Cmip6TimeSum,
-        "emibvoc": Cmip6TimeSum,
-        "emiotherbvocs": Cmip6TimeSum,
-        "gpp": PP,
-        "npp": PP,
-        "pr": PR,
-        "tas": TAS,
-        "rsds": RSDS,
-        "emioa": EMIOA,
-        "chepsoa": CHEPSOA,
-        "emipoa": EMIPOA,
-    }
+class ModelVar:
+    def __init__(self):
+        self.var_obj_dict = {
+            "emiisop": Cmip6TimeSum,
+            "emibvoc": BVOC,
+            "emiotherbvocs": BVOC,
+            "gpp": PP,
+            "npp": PP,
+            "pr": PR,
+            "tas": TAS,
+            "rsds": RSDS,
+            "emioa": EMIOA,
+            "chepsoa": CHEPSOA,
+            "emipoa": EMIPOA,
+        }
+        self.var_obj_visit_dict = {
+            "emiisop": CMIP6Visit,
+            "tas": VisitTAS,
+            "rsds": VisitRSDS,
+        }
 
+
+class Model(ModelVar):
     def __init__(self, model_name="UKESM1-0-LL") -> None:
+        super().__init__()
+
         self.model_name = model_name
         self.var_names = list()
         self.var_objs = {}
@@ -41,7 +51,7 @@ class Model:
         l_model_ds = []
         for f in model_files:
             var_ds = (
-                visit_t2cft(VISIT_DICT_PATH[self.model_name], case=self.model_name)
+                visit_t2cft(f, var_name, m_name=self.model_name)
                 if "VISIT" in self.model_name
                 else (xr.open_dataset(f))
             )
@@ -63,7 +73,7 @@ class Model:
 
         for v_name in self.var_names:
             if "VISIT" in self.model_name:
-                self.var_objs[v_name] = CMIP6Visit(
+                self.var_objs[v_name] = self.var_obj_visit_dict[v_name](
                     self.model_name, self.get_var_ds(v_name), v_name
                 )
             else:
@@ -435,23 +445,11 @@ class Model:
                 )
 
 
-class Var:
-    var_obj_dict = {
-        "emiisop": Cmip6TimeSum,
-        "emibvoc": BVOC,
-        "emiotherbvocs": BVOC,
-        "gpp": PP,
-        "npp": PP,
-        "pr": PR,
-        "tas": TAS,
-        "rsds": RSDS,
-        "emioa": EMIOA,
-        "chepsoa": CHEPSOA,
-        "emipoa": EMIPOA,
-    }
+class Var(ModelVar):
     processed_dir = "../data/processed_data"
 
     def __init__(self, var_name):
+        super().__init__()
         self.var_name = var_name
         self.obj_type = None
         self.multi_models = {}
@@ -461,6 +459,7 @@ class Var:
 
     def get_obj_type(self):
         self.obj_type = self.var_obj_dict[self.var_name]
+        self.obj_type_visit = self.var_obj_visit_dict[self.var_name]
 
     def get_model_name(self, path):
         var_name = {
@@ -499,30 +498,13 @@ class Var:
                 multi_models[m_name] = self.obj_type(
                     m_name, xr.concat(l_model, dim=DIM_TIME), self.var_name
                 )
+            else:
+                for f in all_files:
+                    if m_name in f:
+                        multi_models[m_name] = self.obj_type_visit(
+                            m_name, visit_t2cft(f, self.var_name, m_name), self.var_name
+                        )
 
-        if self.var_name == "emiisop":
-            for visit_case in VISIT_DICT_PATH.keys():
-                multi_models[visit_case] = CMIP6Visit(
-                    visit_case,
-                    visit_t2cft(VISIT_DICT_PATH[visit_case], case=visit_case),
-                    self.var_name,
-                )
-
-        elif self.var_name == "tas":
-            for visit_case in VISIT_DICT_PATH.keys():
-                multi_models[visit_case] = VisitTAS(
-                    visit_case,
-                    visit_t2cft(VISIT_DICT_PATH[visit_case], case=visit_case),
-                    self.var_name,
-                )
-
-        elif self.var_name == "rsds":
-            for visit_case in VISIT_DICT_PATH.keys():
-                multi_models[visit_case] = VisitRSDS(
-                    visit_case,
-                    visit_t2cft(VISIT_DICT_PATH[visit_case], case=visit_case),
-                    self.var_name,
-                )
         self.multi_models = multi_models
 
     def plot_regional_map(self):
@@ -669,21 +651,25 @@ class Var:
 
     def plot_global_annual_trend(self, mode="annual"):
         model_names = self.multi_models.keys()
-        colors = {
-            "CESM2-WACCM": "#33a02c",
-            "GFDL-ESM4": "#878787",
-            "GISS-E2-1-G": "#2166ac",
-            "NorESM2-LM": "#7fc97f",
-            "UKESM1-0-LL": "#984ea3",
-            "VISIT_ORG": "#fb9a99",
-            "VISIT_CASE1": "#e41a1c",
-            "VISIT_CASE2": "#ff7f00",
-            "VISIT_CASE3": "#f9c74f",
-            "VISIT_FSM1": "#b15928",
-            "VISIT_TAS": "#e41a1c",
-            "VISIT_PR": "#e41a1c",
-            "VISIT_RSDS": "#e41a1c",
+        colors = [
+            "#33a02c",
+            "#878787",
+            "#2166ac",
+            "#7fc97f",
+            "#984ea3",
+            "#fb9a99",
+            "#e41a1c",
+            "#ff7f00",
+            "#f9c74f",
+            "#b15928",
+            "#e41a1c",
+            "#e41a1c",
+            "#e41a1c",
+        ]
+        colors_dict = {
+            m_name: c for m_name, c in zip(model_names, colors[: len(model_names)])
         }
+
         fig, ax = plt.subplots(figsize=(10, 6.5), layout="constrained")
         axbox = ax.get_position()
         for name in model_names:
@@ -709,9 +695,9 @@ class Var:
                 linewidth=1.5,
                 marker="o",
                 ms=4,
-                color=colors[name],
+                color=colors_dict[name],
                 markerfacecolor="white",
-                markeredgecolor=colors[name],
+                markeredgecolor=colors_dict[name],
             )
             # ax.plot(x2, trend_line2, linewidth=1.5, ls="--", color=colors[name])
             # print(name)

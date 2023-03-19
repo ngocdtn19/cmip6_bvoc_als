@@ -2,7 +2,13 @@ import glob
 import os
 from const import *
 
-DATA_DIR = "/mnt/dg3/ngoc/cmip6_bvoc_als/data"
+DATA_SERVER = "/mnt/dg3/ngoc/cmip6_bvoc_als/data"
+DATA_LOCAL = "../data/"
+
+DATA_DIR = DATA_LOCAL
+if os.path.exists(DATA_SERVER):
+    DATA_DIR = DATA_SERVER
+
 VAR_DIR = os.path.join(DATA_DIR, "var")
 AXL_DIR = os.path.join(DATA_DIR, "axl")
 LIST_ATTR = [attr.split("\\")[-1] for attr in glob.glob(os.path.join(VAR_DIR, "*"))]

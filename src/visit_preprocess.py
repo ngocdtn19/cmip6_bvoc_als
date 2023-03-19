@@ -5,7 +5,7 @@ import numpy as np
 import copy
 
 from datetime import datetime, timedelta
-from CMIP6Model import CMIP6Var
+from CMIP6Var import CMIP6Var
 
 from const import *
 from mypath import *
@@ -25,29 +25,21 @@ def year_2_cft(dcm_year):
     return cft
 
 
-def visit_t2cft(visit_nc, case="VISIT_ORG"):
+def visit_t2cft(visit_nc, var_name, m_name="VISIT_ORG"):
     org_visit_ds = xr.open_dataset(visit_nc, decode_times=False)
     cft = [year_2_cft(org_time) for org_time in org_visit_ds.time.values]
     org_visit_ds.coords["time"] = cft
-    # if case == "VISIT_TAS":
-    #     org_visit_ds = org_visit_ds.where(
-    #         org_visit_ds["tas"].sel(time=slice("1901-01", "2015-12"))
-    #     )
-    #     org_visit_ds = org_visit_ds.where(org_visit_ds["tas"] != -9999.0)
-    # if case == "VISIT_RSDS":
-    #     org_visit_ds = org_visit_ds.where(
-    #         org_visit_ds["rsds"].sel(time=slice("1901-01", "2015-12"))
-    #     )
-    #     org_visit_ds = org_visit_ds.where(org_visit_ds["rsds"] != -9999.0)
-    if case == "VISIT_ORG":
-        org_visit_ds = org_visit_ds.rename({"Isprn": "emiisop"})
-        org_visit_ds = org_visit_ds.where(org_visit_ds["emiisop"] != -9999.0)
-    else:
-        org_visit_ds = org_visit_ds.rename({"isopr": "emiisop"})
-        org_visit_ds = org_visit_ds.where(
-            org_visit_ds["emiisop"].sel(time=slice("1901-01", "2015-12"))
-        )
-        org_visit_ds = org_visit_ds.where(org_visit_ds["emiisop"] != -9999.0)
+
+    if var_name == "emiisop":
+        if "org" in m_name.lower():
+            org_visit_ds = org_visit_ds.rename({"Isprn": var_name})
+        else:
+            org_visit_ds = org_visit_ds.rename({"isopr": var_name})
+    
+    org_visit_ds = org_visit_ds.where(
+        org_visit_ds[var_name].sel(time=slice("1901-01", "2015-12"))
+    )
+    org_visit_ds = org_visit_ds.where(org_visit_ds[var_name] != -9999.0)
 
     return org_visit_ds
 

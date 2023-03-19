@@ -47,14 +47,15 @@ def preprocess_truth_model_ds(model_name, var_name="emiisop"):
     topdown_ds = copy.deepcopy(TOPDOWN_DS)
 
     # merge and convert to gC/m2/month
+    list_nc_files = DICT_MODEL_NAMES[model_name]
     if "VISIT" not in model_name:
-        list_nc_files = DICT_MODEL_NAMES[model_name]
         model_ds = merge_by_model(list_nc_files)
         nodays_m = cal_nodays_m(model_ds)
         model_ds[var_name] = KG_2_G * ISOP_2_C * DAY_RATE * model_ds[var_name]
         model_ds[var_name] = model_ds[var_name].transpose(..., "time") * nodays_m
     else:
-        model_ds = visit_t2cft(VISIT_DICT_PATH[model_name], case=model_name)
+        
+        model_ds = visit_t2cft(list_nc_files[0], var_name, model_name)
         model_ds[var_name] = model_ds[var_name] * MG_2_G
 
     sliced_model_ds = model_ds.sel(time=AVAIL_TIME)
@@ -118,8 +119,6 @@ def main():
         "me": xskill.me,
     }
 
-    DICT_MODEL_NAMES.update(VISIT_DICT_PATH)
-
     for i, model_name in enumerate(DICT_MODEL_NAMES.keys()):
         print(model_name)
         truth_ds, model_ds = preprocess_truth_model_ds(model_name)
@@ -127,10 +126,10 @@ def main():
         for j, score_name in enumerate(dict_score.keys()):
             test_score = val_single_score(truth_ds, model_ds, dict_score[score_name])
             plot_map(test_score, i * len(DICT_MODEL_NAMES.keys()) + j + 1)
-            plt.title(f"{model_name} - {score_name}", fontsize=18)
-            plt.savefig(
-                os.path.join("../fig/validate", f"{model_name}-{score_name}.png")
-            )
+            # plt.title(f"{model_name} - {score_name}", fontsize=18)
+            # plt.savefig(
+            #     os.path.join("../fig/validate", f"{model_name}-{score_name}.png")
+            # )
 
 
 # %%
