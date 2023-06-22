@@ -1,6 +1,6 @@
 # %%
+import os
 import xarray as xr
-from const import *
 import numpy as np
 import matplotlib.pyplot as plt
 import calendar
@@ -9,6 +9,9 @@ import rioxarray
 import pandas as pd
 import regionmask
 import geopandas as gpd
+
+from const import *
+from mypath import *
 
 
 def clip_region_mask(ds, region_name="SEA"):
@@ -299,19 +302,114 @@ def clip_to_roi(ds, var=VAR_ISOP):
     return subset
 
 
-def resample(ds):
-    nominal_res = int(ds.nominal_resolution.split(" ")[0])
-    new_lon = np.linspace(ds[DIM_LON][0], ds[DIM_LON][-1], nominal_res)
-    new_lon = np.linspace(ds[DIM_LON][0], ds[DIM_LON][-1], nominal_res)
+def interpolate(ds, lat, lon):
+    interpolated_ds = ds.interp(lat=lat, lon=lon)
+
+    return interpolated_ds
 
 
 def y2p(p):
     s, e = p
-    ys = 1901
+    ys = 1850
 
     m_s = (s - ys) * 12
     m_e = (e - ys + 1) * 12 - 1
     return m_s, m_e
+
+
+def txt_2_nc(txt_file):
+    # convert from txt file to netCDF4 at original resolution
+
+    txt_file = np.loadtxt(
+        "/mnt/dg3/ngoc/data_other/IGBP-SurfaceProducts_569/data/IGBP_wp.dat",
+        delimiter=" ",
+    )
+    wiltpoint = []
+    wiltpoint[:] = txt_file[:]
+    latitudes = np.arange(-56.5, 84.0, 1 / 12)
+    latitudes = latitudes[::-1]
+    longitudes = np.arange(-180.0, 180.0, 1 / 12)
+    ds = xr.Dataset(
+        data_vars=dict(
+            wiltpoint=(["lat", "lon"], wiltpoint),
+        ),
+        coords=dict(
+            lon=(longitudes),
+            lat=(latitudes),
+        ),
+        attrs=dict(description="Global IGBP wilting point at 0.0833333 degree"),
+    )
+    ds = ds.where(ds["wiltpoint"] != -2)
+    ds = ds.fillna(-9999.0)
+    org_nc_file = ds.to_netcdf(
+        path="/mnt/dg3/ngoc/data_other/IGBP-SurfaceProducts_569/data/IGBP_wp_org.nc",
+        mode="w",
+        format="NETCDF4",
+    )
+
+    # convert to VISIT resolution
+    ds = ds.where(ds["wiltpoint"] != -9999)
+    interp_lat = np.load(VISIT_LAT_FILE)
+    interp_lon = np.load(VISIT_LONG_FILE)
+
+    interpolated_ds = ds["wiltpoint"].interp(lat=interp_lat, lon=interp_lon)
+    interpolated_ds = interpolated_ds / 1000
+    interpolated_ds = interpolated_ds.fillna(-9999.0)
+    inter_ds = xr.Dataset(
+        data_vars=dict(
+            wiltpoint=(["lat", "lon"], interpolated_ds.values),
+        ),
+        coords=dict(
+            lon=(interp_lon),
+            lat=(interp_lat),
+        ),
+        attrs=dict(
+            description="Global IGBP wilting point at 0.5 degree, fillna = -9999.0"
+        ),
+    )
+    inter_nc_file = inter_ds.to_netcdf(
+        path="/mnt/dg3/ngoc/data_other/IGBP-SurfaceProducts_569/data/IGBP_wp_0.5.nc",
+        mode="w",
+        format="NETCDF4",
+    )
+    df = inter_ds["wiltpoint"].values
+    df = pd.DataFrame(df.flatten())
+    inter_txt_file = df.to_csv(
+        "/mnt/dg3/ngoc/data_other/IGBP-SurfaceProducts_569/data/wp_2visit.dat",
+        header=None,
+        index=None,
+    )
+
+    return org_nc_file, inter_nc_file, inter_txt_file
+
+
+def resample(folder):
+    latp = os.path.join(DATA_DIR, "gfdl_esm4_latlon", "lat.npy")
+    lonp = latp.replace("lat.npy", "lon.npy")
+    int_folder = "1x125deg"
+
+    lat, lon = np.load(latp), np.load(lonp)
+
+    path = os.path.join(DATA_SERVER, folder)
+
+    for p, sd, fs in os.walk(path):
+        for name in fs:
+            file_path = os.path.join(p, name)
+            var_name = file_path.split("\\")[-1].split(".nc")[0].split("_")[-1]
+            new_path = file_path.replace(folder, f"{int_folder}/{folder}")
+            new_folder = p.replace(folder, f"{int_folder}/{folder}")
+
+            if not os.path.exists(new_path):
+                if "VISIT" in file_path:
+                    ds = xr.open_dataset(file_path, decode_times=False)
+                else:
+                    ds = xr.open_dataset(file_path)
+                resampled_ds = interpolate(ds, lat, lon)
+
+                if not os.path.isdir(new_folder):
+                    os.makedirs(new_folder)
+
+                resampled_ds.to_netcdf(new_path)
 
 
 # %%

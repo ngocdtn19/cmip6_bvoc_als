@@ -7,11 +7,12 @@ import matplotlib
 
 from utils import *
 from const import *
+from mypath import *
 
 from visit_preprocess import visit_t2cft
 
 
-DICT_MODEL_NAMES = get_list_model_by_name(glob.glob("../data/var/emiisop/*.nc"))
+DICT_MODEL_NAMES = get_list_model_by_name(sorted(ISOP_LIST))
 
 TOPDOWN_DS = xr.open_dataset(CONCAT_TOPDOWN_PATH)
 
@@ -54,7 +55,6 @@ def preprocess_truth_model_ds(model_name, var_name="emiisop"):
         model_ds[var_name] = KG_2_G * ISOP_2_C * DAY_RATE * model_ds[var_name]
         model_ds[var_name] = model_ds[var_name].transpose(..., "time") * nodays_m
     else:
-        
         model_ds = visit_t2cft(list_nc_files[0], var_name, model_name)
         model_ds[var_name] = model_ds[var_name] * MG_2_G
 
@@ -82,7 +82,10 @@ def preprocess_truth_model_ds(model_name, var_name="emiisop"):
 
 def val_single_score(truth_ds, model_ds, score):
     test_score = score(truth_ds, model_ds, dim="time", skipna=True)
-    return test_score
+    test_score_mean = np.format_float_positional(
+        test_score.mean(dim=["lat", "lon"], skipna=True).values, precision=3
+    )
+    return test_score, test_score_mean
 
 
 def plot_map(test_score, i):
@@ -115,7 +118,7 @@ def main():
         # "pearson_r": xskill.pearson_r,
         # "pearson_r_p_value": xskill.pearson_r_p_value,
         # "mae": xskill.mae,
-        # "rmse": xskill.rmse,
+        "rmse": xskill.rmse,
         "me": xskill.me,
     }
 
@@ -124,9 +127,16 @@ def main():
         truth_ds, model_ds = preprocess_truth_model_ds(model_name)
 
         for j, score_name in enumerate(dict_score.keys()):
-            test_score = val_single_score(truth_ds, model_ds, dict_score[score_name])
+            test_score, test_score_mean = val_single_score(
+                truth_ds, model_ds, dict_score[score_name]
+            )
             plot_map(test_score, i * len(DICT_MODEL_NAMES.keys()) + j + 1)
-            # plt.title(f"{model_name} - {score_name}", fontsize=18)
+            plt.title(f"{model_name} - {score_name}", fontsize=18)
+            plt.annotate(
+                f"Mean {score_name} = {test_score_mean}",
+                xy=(150, 95),
+                fontsize=16,
+            )
             # plt.savefig(
             #     os.path.join("../fig/validate", f"{model_name}-{score_name}.png")
             # )

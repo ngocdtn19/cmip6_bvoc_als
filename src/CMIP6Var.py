@@ -55,6 +55,8 @@ class CMIP6Var:
         self.regional_rate = {}
         self.regional_mean_1850_2014 = {}
         self.regional_rate_anml = {}
+        self.regional_ss_rate = {}
+        self.regional_ss_rate_anml = {}
 
         self.cal_years()
         self.cal_nodays_m()
@@ -70,10 +72,11 @@ class CMIP6Var:
 
         self.cal_seasonal_ds()
         self.cal_seasonal_per_area_unit()
-        self.cal_global_seasonal_rate()
+        self.cal_global_seasonal_rate()  # cal global seasonal mean
 
-        self.cal_glob_rate()
-        # self.cal_reg_ds_rate()
+        self.cal_glob_rate()  # cal global annual totals
+        self.cal_reg_ann_rate()  # cal regional annual totals
+        self.cal_reg_ss_rate()  # cal regional seasonal mean
 
     def cal_years(self):
         self.years = list(set(t.year for t in self.org_ds_var[DIM_TIME].values))
@@ -108,21 +111,6 @@ class CMIP6Var:
     def cal_seasonal_per_area_unit(self):
         ds = self.monthly_per_area_unit
         self.seasonal_per_area_unit = ds.resample(time="QS-DEC").mean(skipna=True)
-
-    def cal_reg_ds_rate(self):
-        clipped_ds = self.clip_2_roi_ds()
-        for roi in clipped_ds:
-            mon_ds_roi = clipped_ds[roi]
-            ann_ds_roi = mon_ds_roi.groupby(mon_ds_roi.time.dt.year).sum(skipna=True)
-
-            self.regional_ds[roi] = ann_ds_roi
-            self.regional_rate[roi] = ann_ds_roi.sum(dim=[DIM_LAT, DIM_LON])
-            self.regional_mean_1850_2014[roi] = self.regional_rate[roi].mean(
-                skipna=True
-            )
-            self.regional_rate_anml[roi] = (
-                self.regional_rate[roi] - self.regional_mean_1850_2014[roi]
-            )
 
     def clip_2_roi_ds(self):
         ds = copy.deepcopy(self.monthly_ds)
@@ -185,9 +173,13 @@ class CMIP6Var:
         # this will be overwritten by child class
         return
 
-    # def cal_reg_ds_rate(self):
-    #     # this will be overwritten by child class
-    #     return
+    def cal_reg_ann_rate(self):
+        # this will be overwritten by child class
+        return
+
+    def cal_reg_ss_rate(self):
+        # this will be overwritten by child class
+        return
 
 
 class Cmip6TimeSum(CMIP6Var):
@@ -211,8 +203,17 @@ class Cmip6TimeSum(CMIP6Var):
         self.nodays_m = nodays_m
 
     def cal_monthly_per_area_unit(self):
+        reindex_ds_lf = (
+            self.ds_sftlf[VAR_SFTLF].reindex_like(
+                self.org_ds_var[self.var_name], method="nearest", tolerance=0.01
+            )
+            * 1e-2
+            if self.model_name == "UKESM1-0-LL"
+            else 1
+        )
         self.monthly_per_area_unit = (
-            KG_2_G
+            reindex_ds_lf
+            * KG_2_G
             * ISOP_2_C
             * DAY_RATE
             * self.org_ds_var[self.var_name].transpose(..., "time")
@@ -221,9 +222,7 @@ class Cmip6TimeSum(CMIP6Var):
 
     def cal_annual_per_area_unit(self):
         ds = self.monthly_per_area_unit
-        self.annual_per_area_unit = ds.groupby(ds.time.dt.year).mean(
-            "time", skipna=True
-        )
+        self.annual_per_area_unit = ds.groupby(ds.time.dt.year).sum("time", skipna=True)
 
     def cal_monthly_ds(self):
         reindex_ds_lf = (
@@ -268,20 +267,37 @@ class Cmip6TimeSum(CMIP6Var):
 
         self.y10_rate = {"years": y10, "y10_rate": y10_rate}
 
-    # def cal_reg_ds_rate(self):
-    #     clipped_ds = self.clip_2_roi_ds()
-    #     for roi in clipped_ds:
-    #         mon_ds_roi = clipped_ds[roi]
-    #         ann_ds_roi = mon_ds_roi.groupby(mon_ds_roi.time.dt.year).sum(skipna=True)
+    def cal_reg_ann_rate(self):
+        clipped_ds = self.clip_2_roi_ds()
+        for roi in clipped_ds:
+            mon_ds_roi = clipped_ds[roi]
+            ann_ds_roi = mon_ds_roi.groupby(mon_ds_roi.time.dt.year).sum(skipna=True)
 
-    #         self.regional_ds[roi] = ann_ds_roi
-    #         self.regional_rate[roi] = ann_ds_roi.sum(dim=[DIM_LAT, DIM_LON])
-    #         self.regional_mean_1850_2014[roi] = self.regional_rate[roi].mean(
-    #             skipna=True
-    #         )
-    #         self.regional_rate_anml[roi] = (
-    #             self.regional_rate[roi] - self.regional_mean_1850_2014[roi]
-    #         )
+            self.regional_ds[roi] = ann_ds_roi
+            self.regional_rate[roi] = ann_ds_roi.sum(dim=[DIM_LAT, DIM_LON])
+            self.regional_mean_1850_2014[roi] = self.regional_rate[roi].mean(
+                skipna=True
+            )
+            self.regional_rate_anml[roi] = (
+                self.regional_rate[roi] - self.regional_mean_1850_2014[roi]
+            )
+
+    def cal_reg_ss_rate(self):
+        clipped_ds = self.clip_2_roi_ds()
+        for roi in clipped_ds:
+            mon_ds_roi = clipped_ds[roi]
+            ss_ds_roi = mon_ds_roi.resample(time="QS-DEC").mean(skipna=True)
+            self.regional_ss_rate[roi] = (
+                ss_ds_roi.groupby("time")
+                .sum(dim=[DIM_LAT, DIM_LON])
+                .reset_coords(["spatial_ref"], drop=True)
+            )
+            self.regional_ss_rate_anml[roi] = self.regional_ss_rate[roi].groupby(
+                "time.month"
+            ) - self.regional_ss_rate[roi].groupby("time.month").mean(skipna=True)
+            self.regional_ss_rate_anml[roi] = self.regional_ss_rate_anml[
+                roi
+            ].reset_coords(["month"], drop=True)
 
 
 class BVOC(Cmip6TimeSum):
@@ -339,23 +355,18 @@ class PR(CMIP6Var):
         total_area = self.ds_area[VAR_AREA].sum().item()
 
         self.monthly_ds = (
-            reindex_ds_var.transpose(..., "time")
-            * self.kg_2_mm
-            * self.ds_area[VAR_AREA]
-            / total_area
+            reindex_ds_var * self.kg_2_mm * self.ds_area[VAR_AREA] / total_area
         )
 
     def cal_annual_ds(self):
-        ds = self.monthly_ds[:]
+        ds = self.monthly_ds
         self.annual_ds = ds.groupby(ds.time.dt.year).mean(skipna=True)
 
     def cal_monthly_per_area_unit(self):
-        reindex_ds_var = self.org_ds_var[self.var_name].reindex_like(
-            self.ds_area[VAR_AREA], method="nearest", tolerance=0.01
-        )
-        self.monthly_per_area_unit = (
-            reindex_ds_var.transpose(..., "time") * self.kg_2_mm
-        )
+        # reindex_ds_var = self.org_ds_var[self.var_name].reindex_like(
+        #     self.ds_area[VAR_AREA], method="nearest", tolerance=0.01
+        # )
+        self.monthly_per_area_unit = self.org_ds_var[self.var_name] * self.kg_2_mm
 
     def cal_annual_per_area_unit(self):
         ds = self.monthly_per_area_unit
@@ -363,7 +374,7 @@ class PR(CMIP6Var):
             "time", skipna=True
         )
 
-    def cal_reg_ds_rate(self):
+    def cal_reg_ann_rate(self):
         total_area = self.ds_area[VAR_AREA].sum().item()
         clipped_ds = self.clip_2_roi_ds()
         clipped_area = self.clip_2_roi_area()
@@ -382,6 +393,26 @@ class PR(CMIP6Var):
             self.regional_rate_anml[roi] = (
                 self.regional_rate[roi] - self.regional_mean_1850_2014[roi]
             )
+
+    def cal_reg_ss_rate(self):
+        total_area = self.ds_area[VAR_AREA].sum().item()
+        clipped_ds = self.clip_2_roi_ds()
+        clipped_area = self.clip_2_roi_area()
+        for roi in clipped_ds:
+            roi_area = clipped_area[roi].sum(dim=[DIM_LAT, DIM_LON])
+            mon_ds_roi = clipped_ds[roi] * total_area / roi_area
+            ss_ds_roi = mon_ds_roi.resample(time="QS-DEC").mean(skipna=True)
+            self.regional_ss_rate[roi] = (
+                ss_ds_roi.groupby("time")
+                .sum(dim=[DIM_LAT, DIM_LON])
+                .reset_coords(["spatial_ref"], drop=True)
+            )
+            self.regional_ss_rate_anml[roi] = self.regional_ss_rate[roi].groupby(
+                "time.month"
+            ) - self.regional_ss_rate[roi].groupby("time.month").mean(skipna=True)
+            self.regional_ss_rate_anml[roi] = self.regional_ss_rate_anml[
+                roi
+            ].reset_coords(["month"], drop=True)
 
 
 class TAS(CMIP6Var):
@@ -411,7 +442,7 @@ class TAS(CMIP6Var):
             "time", skipna=True
         )
 
-    def cal_reg_ds_rate(self):
+    def cal_reg_ann_rate(self):
         total_area = self.ds_area[VAR_AREA].sum().item()
         clipped_ds = self.clip_2_roi_ds()
         clipped_area = self.clip_2_roi_area()
@@ -430,6 +461,26 @@ class TAS(CMIP6Var):
             self.regional_rate_anml[roi] = (
                 self.regional_rate[roi] - self.regional_mean_1850_2014[roi]
             )
+
+    def cal_reg_ss_rate(self):
+        total_area = self.ds_area[VAR_AREA].sum().item()
+        clipped_ds = self.clip_2_roi_ds()
+        clipped_area = self.clip_2_roi_area()
+        for roi in clipped_ds:
+            roi_area = clipped_area[roi].sum(dim=[DIM_LAT, DIM_LON])
+            mon_ds_roi = clipped_ds[roi] * total_area / roi_area
+            ss_ds_roi = mon_ds_roi.resample(time="QS-DEC").mean(skipna=True)
+            self.regional_ss_rate[roi] = (
+                ss_ds_roi.groupby("time")
+                .sum(dim=[DIM_LAT, DIM_LON])
+                .reset_coords(["spatial_ref"], drop=True)
+            )
+            self.regional_ss_rate_anml[roi] = self.regional_ss_rate[roi].groupby(
+                "time.month"
+            ) - self.regional_ss_rate[roi].groupby("time.month").mean(skipna=True)
+            self.regional_ss_rate_anml[roi] = self.regional_ss_rate_anml[
+                roi
+            ].reset_coords(["month"], drop=True)
 
 
 class RSDS(TAS):
@@ -479,6 +530,123 @@ class CHEPSOA(EMIOA):
 
 
 class EMIPOA(EMIOA):
+    def __init__(self, model_name, org_ds_var, var_name):
+        super().__init__(model_name, org_ds_var, var_name)
+
+
+class MRSO(CMIP6Var):
+    def __init__(self, model_name, org_ds_var, var_name):
+        super().__init__(model_name, org_ds_var, var_name)
+
+    def cal_monthly_ds(self):
+        self.monthly_ds = self.org_ds_var[self.var_name].where(
+            self.org_ds_var[self.var_name] > 0
+        )
+
+    def cal_monthly_per_area_unit(self):
+        self.monthly_per_area_unit = self.org_ds_var[self.var_name].where(
+            self.org_ds_var[self.var_name] > 0
+        )
+
+    def cal_annual_ds(self):
+        ds = self.monthly_ds[:]
+        self.annual_ds = ds.groupby(ds.time.dt.year).mean("time", skipna=True)
+
+    def cal_annual_per_area_unit(self):
+        ds = self.monthly_per_area_unit
+        self.annual_per_area_unit = ds.groupby(ds.time.dt.year).mean(
+            "time", skipna=True
+        )
+
+    def cal_glob_rate(self):
+        self.global_rate = self.annual_ds.mean(dim=[DIM_LAT, DIM_LON])
+        self.global_rate_anml = self.global_rate - self.global_rate.mean(skipna=True)
+
+    def cal_global_seasonal_rate(self):
+        ds = self.seasonal_ds
+        self.global_seasonal_rate = ds.groupby("time").mean(dim=[DIM_LAT, DIM_LON])
+        self.global_seasonal_rate_anml = self.global_seasonal_rate.groupby(
+            "time.month"
+        ) - self.global_seasonal_rate.groupby("time.month").mean(skipna=True)
+
+    def cal_reg_ann_rate(self):
+        clipped_ds = self.clip_2_roi_ds()
+        for roi in clipped_ds:
+            mon_ds_roi = clipped_ds[roi]
+            self.regional_ds[roi] = mon_ds_roi.groupby(mon_ds_roi.time.dt.year).mean(
+                skipna=True
+            )
+            self.regional_rate[roi] = self.regional_ds[roi].mean(dim=[DIM_LAT, DIM_LON])
+            self.regional_mean_1850_2014[roi] = self.regional_rate[roi].mean(
+                skipna=True
+            )
+            self.regional_rate_anml[roi] = (
+                self.regional_rate[roi] - self.regional_mean_1850_2014[roi]
+            )
+
+    def cal_reg_ss_rate(self):
+        clipped_ds = self.clip_2_roi_ds()
+        for roi in clipped_ds:
+            mon_ds_roi = clipped_ds[roi]
+            ss_ds_roi = mon_ds_roi.resample(time="QS-DEC").mean(skipna=True)
+            self.regional_ss_rate[roi] = (
+                ss_ds_roi.groupby("time")
+                .mean(dim=[DIM_LAT, DIM_LON])
+                .reset_coords(["spatial_ref"], drop=True)
+            )
+            self.regional_ss_rate_anml[roi] = self.regional_ss_rate[roi].groupby(
+                "time.month"
+            ) - self.regional_ss_rate[roi].groupby("time.month").mean(skipna=True)
+            self.regional_ss_rate_anml[roi] = self.regional_ss_rate_anml[
+                roi
+            ].reset_coords(["month"], drop=True)
+
+
+class MRSOS(MRSO):
+    def __init__(self, model_name, org_ds_var, var_name):
+        super().__init__(model_name, org_ds_var, var_name)
+
+
+class LAI(MRSO):
+    def __init__(self, model_name, org_ds_var, var_name):
+        super().__init__(model_name, org_ds_var, var_name)
+
+
+class CO2mass(CMIP6Var):
+    def __init__(self, model_name, org_ds_var, var_name):
+        super().__init__(model_name, org_ds_var, var_name)
+
+    def cal_glob_rate(self):
+        # unit conversion from mass (kg) to ppm
+        ds = self.org_ds_var[self.var_name] * 28.966 / (44 * 5.148e18) * 1e6
+        self.global_rate = ds.groupby(ds.time.dt.year).mean(skipna=True)
+        self.global_rate_anml = self.global_rate - self.global_rate.mean(skipna=True)
+
+    def clip_2_roi_ds(self):
+        return
+
+    def cal_reg_ann_rate(self):
+        return
+
+    def cal_seasonal_ds(self):
+        ds = self.org_ds_var[self.var_name] * 28.966 / (44 * 5.148e18) * 1e6
+        self.seasonal_ds = ds.resample(time="QS-DEC").mean(skipna=True)
+
+    def cal_global_seasonal_rate(self):
+        ds = self.seasonal_ds
+        self.global_seasonal_rate = ds
+        self.global_seasonal_rate_anml = self.global_seasonal_rate.groupby(
+            "time.month"
+        ) - self.global_seasonal_rate.groupby("time.month").mean(skipna=True)
+
+    def cal_annual_per_area_unit(self):
+        return
+
+    def cal_seasonal_per_area_unit(self):
+        return
+
+
+class CO2s(RSDS):
     def __init__(self, model_name, org_ds_var, var_name):
         super().__init__(model_name, org_ds_var, var_name)
 

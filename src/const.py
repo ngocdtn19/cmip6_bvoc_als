@@ -32,12 +32,10 @@ K_2_C = 273.15
 
 MG_2_G = 1e-6  # convert from micro gram to gram
 MG_2_TG = 1e-18  # convert from micro gram to Teragram
-# DEG_2_M2 = 55500**2
 
-
-# LIST_REGION = ["SEA", "EAS"]
+LIST_REGION = ["AMZ", "SEA", "SSA", "SAH"]
 REGION = regionmask.defined_regions.srex
-LIST_REGION = [REGION.regions[i].abbrev for i in REGION.regions.keys()]
+# LIST_REGION = [REGION.regions[i].abbrev for i in REGION.regions.keys()]
 # LIST_COLOR = get_colors(len(LIST_REGION))
 LIST_COLOR = [
     "#ff5005",
@@ -146,7 +144,7 @@ VIZ_OPT = {
         "line_ylim": 0,
     },
     "emioa": {
-        "map_unit": "[$g/m^{2}/year$]",  # cmap1="RdBu_r", cmap2="OrRd"
+        "map_unit": "[$g/m^{2}$]",  # cmap1="RdBu_r", cmap2="OrRd"
         "map_vmin": 0,  # bg_color="#053061", vmin=-0.15, vmax=0.15 for change map
         "map_vmax": 0.3,
         "map_levels": 17,
@@ -156,7 +154,7 @@ VIZ_OPT = {
         # "holv_unit": "[$gC/m^{2}/month$]",
     },
     "chepsoa": {
-        "map_unit": "[$g/m^{2}/year$]",  # cmap1="RdBu_r", cmap2="OrRd"
+        "map_unit": "[$g/m^{2}$]",  # cmap1="RdBu_r", cmap2="OrRd"
         "map_vmin": 0,
         "map_vmax": 0.2,
         "map_levels": 17,
@@ -166,7 +164,7 @@ VIZ_OPT = {
         # "holv_unit": "[$gC/m^{2}/month$]",
     },
     "emiotherbvocs": {
-        "map_unit": "[$g/m^{2}/year$]",
+        "map_unit": "[$g/m^{2}$]",
         "map_vmin": 0,
         "map_vmax": 0,
         "map_levels": 0,
@@ -176,14 +174,64 @@ VIZ_OPT = {
         "holv_unit": "[$gC/m^{2}/month$]",
     },
     "emipoa": {
-        "map_unit": "[$g/m^{2}/year$]",  # cmap1="RdBu_r", cmap2="OrRd"
+        "map_unit": "[$g/m^{2}$]",  # cmap1="RdBu_r", cmap2="OrRd"
         "map_vmin": 0,
         "map_vmax": 0.2,
         "map_levels": 17,
         "line_bar_unit": "[Tg]",
         "line_ylim": [0, 0],
         "bar_ylim": [0, 0],
-        "holv_unit": "[$gC/m^{2}/year$]",
+        "holv_unit": "[$gC/m^{2}/month$]",
+    },
+    "mrso": {
+        "map_unit": "[$kg/m^{2}$]",  # cmap1="RdBu_r", cmap2="OrRd"
+        "map_vmin": 0,
+        "map_vmax": 0,
+        "map_levels": 0,
+        "line_bar_unit": "[$kg/m^{2}$]",
+        "line_ylim": [0, 0],
+        "bar_ylim": [0, 0],
+        "holv_unit": "[$kg/m^{2}/month$]",
+    },
+    "mrsos": {
+        "map_unit": "[$kg/m^{2}$]",  # cmap1="RdBu_r", cmap2="OrRd"
+        "map_vmin": 0,
+        "map_vmax": 0,
+        "map_levels": 0,
+        "line_bar_unit": "[$kg/m^{2}$]",
+        "line_ylim": [0, 0],
+        "bar_ylim": [0, 0],
+        "holv_unit": "[$kg/m^{2}/month$]",
+    },
+    "lai": {
+        "map_unit": " ",  # cmap1="BrBG", cmap2="RdYlGn", bg_color="#543005" for change map
+        "map_vmin": 0,
+        "map_vmax": 0,
+        "map_levels": 0,
+        "line_bar_unit": "[$m^{2}/m^{2}$]",
+        "line_ylim": [0, 0],
+        "bar_ylim": [0, 0],
+        "holv_unit": " ",
+    },
+    "co2mass": {
+        "map_unit": " ",  # cmap1="BrBG", cmap2="RdYlGn", bg_color="#543005" for change map
+        "map_vmin": 0,
+        "map_vmax": 0,
+        "map_levels": 0,
+        "line_bar_unit": "[ppm]",
+        "line_ylim": [0, 0],
+        "bar_ylim": [0, 0],
+        "holv_unit": " ",
+    },
+    "co2s": {
+        "map_unit": "[ppm]",
+        "map_vmin": 0,
+        "map_vmax": 0,
+        "map_levels": 0,
+        "line_bar_unit": "[ppm]",
+        "line_ylim": [0, 0],
+        "bar_ylim": [0, 0],
+        "holv_unit": " ",
     },
 }
 
@@ -199,15 +247,7 @@ COLOR_STACK_BAR = [
     "red",
 ]
 
-TOPDOWN_DIR = "../data/topdown"
 TOPDOWN_VAR = "EMworldC5H8"
-LIST_TOPDOWN_ANNUAL_FILES = glob.glob(os.path.join(TOPDOWN_DIR, "*.nc"))
-CONCAT_TOPDOWN_PATH = "../data/topdown/concat_topdown.nc"
-
-
-VISIT_LAT_FILE = "../data/visit_latlon/visit_lat.npy"
-VISIT_LONG_FILE = "../data/visit_latlon/visit_long.npy"
-
 WORLD_SHP = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
 
 # %%

@@ -35,12 +35,12 @@ def visit_t2cft(visit_nc, var_name, m_name="VISIT_ORG"):
             org_visit_ds = org_visit_ds.rename({"Isprn": var_name})
         else:
             org_visit_ds = org_visit_ds.rename({"isopr": var_name})
-    
+
     org_visit_ds = org_visit_ds.where(
-        org_visit_ds[var_name].sel(time=slice("1901-01", "2015-12"))
+        org_visit_ds[var_name].sel(time=slice("1850-01", "2014-12"))
     )
     org_visit_ds = org_visit_ds.where(org_visit_ds[var_name] != -9999.0)
-
+    org_visit_ds = org_visit_ds.where(org_visit_ds[var_name] != -99999.0)
     return org_visit_ds
 
 
@@ -141,7 +141,7 @@ class CMIP6Visit(CMIP6Var):
 
     def cal_annual_per_area_unit(self):
         ds = self.monthly_per_area_unit
-        self.annual_per_area_unit = ds.groupby(ds.time.dt.year).mean(skipna=True)
+        self.annual_per_area_unit = ds.groupby(ds.time.dt.year).sum(skipna=True)
 
     def cal_monthly_ds(self):
         reindex_ds_var = self.org_ds_var[self.var_name].reindex_like(
@@ -170,6 +170,38 @@ class CMIP6Visit(CMIP6Var):
 
         self.y10_rate = {"years": y10, "y10_rate": y10_rate}
 
+    def cal_reg_ann_rate(self):
+        clipped_ds = self.clip_2_roi_ds()
+        for roi in clipped_ds:
+            mon_ds_roi = clipped_ds[roi]
+            ann_ds_roi = mon_ds_roi.groupby(mon_ds_roi.time.dt.year).sum(skipna=True)
+
+            self.regional_ds[roi] = ann_ds_roi
+            self.regional_rate[roi] = ann_ds_roi.sum(dim=[DIM_LAT, DIM_LON])
+            self.regional_mean_1850_2014[roi] = self.regional_rate[roi].mean(
+                skipna=True
+            )
+            self.regional_rate_anml[roi] = (
+                self.regional_rate[roi] - self.regional_mean_1850_2014[roi]
+            )
+
+    def cal_reg_ss_rate(self):
+        clipped_ds = self.clip_2_roi_ds()
+        for roi in clipped_ds:
+            mon_ds_roi = clipped_ds[roi]
+            ss_ds_roi = mon_ds_roi.resample(time="QS-DEC").mean(skipna=True)
+            self.regional_ss_rate[roi] = (
+                ss_ds_roi.groupby("time")
+                .sum(dim=[DIM_LAT, DIM_LON])
+                .reset_coords(["spatial_ref"], drop=True)
+            )
+            self.regional_ss_rate_anml[roi] = self.regional_ss_rate[roi].groupby(
+                "time.month"
+            ) - self.regional_ss_rate[roi].groupby("time.month").mean(skipna=True)
+            self.regional_ss_rate_anml[roi] = self.regional_ss_rate_anml[
+                roi
+            ].reset_coords(["month"], drop=True)
+
 
 class VisitTAS(CMIP6Var):
     def __init__(self, model_name, org_ds_var, var_name):
@@ -177,8 +209,6 @@ class VisitTAS(CMIP6Var):
 
     def cal_monthly_ds(self):
         self.monthly_ds = copy.deepcopy(self.org_ds_var[self.var_name])
-        # ws = np.cos(np.deg2rad(self.org_ds_var.lat))
-        # self.weighted_monthly_ds = self.org_ds_var[self.var_name].weighted(ws)
 
     def cal_monthly_per_area_unit(self):
         self.monthly_per_area_unit = copy.deepcopy(self.org_ds_var[self.var_name])
@@ -195,7 +225,20 @@ class VisitTAS(CMIP6Var):
             "time", skipna=True
         )
 
-    def cal_reg_ds_rate(self):
+    def cal_global_seasonal_rate(self):
+        ds = self.seasonal_ds
+        ws = np.cos(np.deg2rad(self.org_ds_var.lat))
+        self.global_seasonal_rate = ds.weighted(ws).mean(dim=[DIM_LAT, DIM_LON])
+        self.global_seasonal_rate_anml = (
+            ds.weighted(ws).mean(dim=[DIM_LAT, DIM_LON]).groupby("time.month")
+            - ds.weighted(ws).mean(dim=[DIM_LAT, DIM_LON]).groupby("time.month").mean()
+        )
+
+    def cal_glob_rate(self):
+        self.global_rate = self.annual_ds.mean(dim=[DIM_LAT, DIM_LON], skipna=True)
+        self.global_rate_anml = self.global_rate - self.global_rate.mean(skipna=True)
+
+    def cal_reg_ann_rate(self):
         clipped_ds = self.clip_2_roi_ds()
         for roi in clipped_ds:
             mon_ds_roi = clipped_ds[roi]
@@ -214,21 +257,87 @@ class VisitTAS(CMIP6Var):
                 self.regional_rate[roi] - self.regional_mean_1850_2014[roi]
             )
 
-    def cal_global_seasonal_rate(self):
-        ds = self.seasonal_ds
-        ws = np.cos(np.deg2rad(self.org_ds_var.lat))
-        self.global_seasonal_rate = ds.weighted(ws).mean(dim=[DIM_LAT, DIM_LON])
-        self.global_seasonal_rate_anml = (
-            ds.weighted(ws).mean(dim=[DIM_LAT, DIM_LON]).groupby("time.month")
-            - ds.weighted(ws).mean(dim=[DIM_LAT, DIM_LON]).groupby("time.month").mean()
-        )
+    def cal_reg_ss_rate(self):
+        clipped_ds = self.clip_2_roi_ds()
+        for roi in clipped_ds:
+            mon_ds_roi = clipped_ds[roi]
+            ss_ds_roi = mon_ds_roi.resample(time="QS-DEC").mean(skipna=True)
+            ws = np.cos(np.deg2rad(ss_ds_roi.lat))
 
-    def cal_glob_rate(self):
-        self.global_rate = self.annual_ds.mean(dim=[DIM_LAT, DIM_LON], skipna=True)
-        self.global_rate_anml = self.global_rate - self.global_rate.mean(skipna=True)
+            self.regional_ss_rate[roi] = ss_ds_roi.weighted(ws).mean(
+                dim=[DIM_LAT, DIM_LON]
+            )
+            self.regional_ss_rate_anml[roi] = self.regional_ss_rate[roi].groupby(
+                "time.month"
+            ) - self.regional_ss_rate[roi].groupby("time.month").mean(skipna=True)
 
 
 class VisitRSDS(VisitTAS):
+    def __init__(self, model_name, org_ds_var, var_name):
+        super().__init__(model_name, org_ds_var, var_name)
+
+
+class VisitMRSO(VisitTAS):
+    def __init__(self, model_name, org_ds_var, var_name):
+        super().__init__(model_name, org_ds_var, var_name)
+
+    def cal_monthly_ds(self):
+        self.monthly_ds = self.org_ds_var[self.var_name].where(
+            self.org_ds_var[self.var_name] > 0
+        )
+
+
+class VisitMRSOS(VisitTAS):
+    def __init__(self, model_name, org_ds_var, var_name):
+        super().__init__(model_name, org_ds_var, var_name)
+
+    def cal_monthly_ds(self):
+        self.monthly_ds = self.org_ds_var[self.var_name].where(
+            self.org_ds_var[self.var_name] > 0
+        )
+
+    def cal_monthly_per_area_unit(self):
+        self.monthly_per_area_unit = self.monthly_ds
+
+
+class VisitLAI(VisitMRSO):
+    def __init__(self, model_name, org_ds_var, var_name):
+        super().__init__(model_name, org_ds_var, var_name)
+
+
+class VisitPR(VisitTAS):
+    def __init__(self, model_name, org_ds_var, var_name):
+        super().__init__(model_name, org_ds_var, var_name)
+
+    def cal_nodays_m(self):
+        self.nodays_m = self.org_ds_var.time.dt.days_in_month
+
+    def cal_monthly_ds(self):
+        self.monthly_ds = self.org_ds_var[self.var_name] / self.nodays_m
+
+    def cal_monthly_per_area_unit(self):
+        self.monthly_per_area_unit = self.monthly_ds
+
+
+class VisitGPP(CMIP6Visit):
+    def __init__(self, model_name, org_ds_var, var_name):
+        super().__init__(model_name, org_ds_var, var_name)
+
+    def cal_monthly_per_area_unit(self):
+        self.monthly_per_area_unit = (
+            self.org_ds_var[self.var_name] * 1e2
+        )  # convert unit from Megagram per ha to gram per m2
+
+    def cal_monthly_ds(self):
+        reindex_ds_var = self.org_ds_var[self.var_name].reindex_like(
+            self.ds_area[VAR_AREA], method="nearest", tolerance=0.01
+        )
+        self.monthly_ds = (
+            self.ds_area[VAR_AREA] * reindex_ds_var * 1e-13
+        )  # convert unit to Petagram
+
+
+class VisitBVOC(CMIP6Visit):
     def __init__(self, model_name, org_ds_var, var_name):
         super().__init__(model_name, org_ds_var, var_name)
 
