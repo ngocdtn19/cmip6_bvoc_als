@@ -342,4 +342,9 @@ class VisitBVOC(CMIP6Visit):
         super().__init__(model_name, org_ds_var, var_name)
 
 
+class VisitCO2s(VisitTAS):
+    def __init__(self, model_name, org_ds_var, var_name):
+        super().__init__(model_name, org_ds_var, var_name)
+
+
 # %%

@@ -7,7 +7,6 @@ from scipy import stats
 from visit_preprocess import *
 from cartopy.util import add_cyclic_point
 import mk
-import pymannkendall as pymk
 import xskillscore as xs
 
 sns.set_style("ticks")
@@ -44,6 +43,7 @@ class ModelVar:
             "lai": VisitLAI,
             "emibvoc": VisitBVOC,
             "emiotherbvocs": VisitBVOC,
+            "co2s": VisitCO2s,
         }
 
 
@@ -79,11 +79,12 @@ class Model(ModelVar):
 
         # remove files without containing model_name
         all_var_files = [f for f in all_var_files if self.model_name in f]
-        self.var_names = list(
+        self.var_names = sorted(list(
             set([f.split("/")[-1].split("_")[0] for f in all_var_files])
-        )
+        ))
 
         for v_name in self.var_names:
+            print(v_name)
             if "VISIT" in self.model_name:
                 self.var_objs[v_name] = self.var_obj_visit_dict[v_name](
                     self.model_name, self.get_var_ds(v_name), v_name
@@ -247,6 +248,7 @@ class Model(ModelVar):
             "mrsos": "#bf812d",
             "lai": "#01665e",
             "co2mass": "#252525",
+            "co2s": "#252525",
         }
 
         for v_name in var_names:
@@ -370,6 +372,7 @@ class Model(ModelVar):
             "mrso": "#8c510a",
             "mrsos": "#bf812d",
             "lai": "#01665e",
+            "co2s": "#252525",
         }
 
         if roi in l_roi:
@@ -493,6 +496,7 @@ class Model(ModelVar):
             "mrso": "#8c510a",
             "mrsos": "#bf812d",
             "lai": "#01665e",
+            "co2s": "#252525",
         }
         ss_name = {12: "DJF", 3: "MAM", 6: "JJA", 9: "SON"}
         for month in [12, 3, 6, 9]:
@@ -712,7 +716,7 @@ class Var(ModelVar):
             print(m_name)
             for y in years:
                 i = i + 1
-                fig = plt.figure(1 + i, figsize=(30, 13))
+                fig = plt.figure(1 + i, figsize=(12, 9))
                 ax = plt.subplot(1, 1, 1, projection=ccrs.PlateCarree())
                 ax.coastlines()
                 ax.gridlines(
@@ -738,7 +742,7 @@ class Var(ModelVar):
                 elif y == "changePD":
                     data = ds.annual_per_area_unit.sel(year=slice(1990, 2014)).mean(
                         "year"
-                    ) - ds.annual_per_area_unit.sel(year=slice(1850, 1870)).mean("year")
+                    ) - ds.annual_per_area_unit.sel(year=slice(1850, 1875)).mean("year")
                     title = f"{m_name} - Change between PD and PI"
                     cmap = my_cmap1
                 elif y == "PD":
@@ -748,11 +752,11 @@ class Var(ModelVar):
                     title = f"{m_name} - {self.var_name} at present day (PD, 1990-2014)"
                     cmap = my_cmap2
                 elif y == "PI":
-                    data = ds.annual_per_area_unit.sel(year=slice(1850, 1870)).mean(
+                    data = ds.annual_per_area_unit.sel(year=slice(1850, 1875)).mean(
                         "year"
                     )
                     title = (
-                        f"{m_name} - {self.var_name} at pre-industry (PI, 1850-1870)"
+                        f"{m_name} - {self.var_name} at pre-industry (PI, 1850-1875)"
                     )
                     cmap = my_cmap2
                 elif y == "mean":
@@ -768,11 +772,15 @@ class Var(ModelVar):
                 data.plot.pcolormesh(
                     ax=ax,
                     cmap=cmap,
-                    # levels=15,  # customize for individual variable if needed
-                    # vmin=0.01,
-                    # vmax=35,
+                    # levels=11,  # customize for individual variable if needed
+                    # vmin=-12,
+                    # vmax=12,
                     extend="both",
-                    cbar_kwargs={"label": VIZ_OPT[self.var_name]["map_unit"]},
+                    cbar_kwargs={
+                        "label": VIZ_OPT[self.var_name]["map_unit"],
+                        "orientation": "horizontal",
+                        "pad": 0.05,
+                    },
                 )
                 plt.title(title, fontsize=18)
                 # plt.savefig(
@@ -1153,40 +1161,40 @@ class Var(ModelVar):
             #         self.processed_dir, "annual_ds", f"{name}_{self.var_name}.nc"
             #     )
             # )
-            monthly_data = self.multi_models[name].monthly_per_area_unit
-            if self.var_name in ["emiisop", "emiotherbvocs", "emibvoc", "gpp", "npp"]:
-                monthly_ds = xr.Dataset(
-                    data_vars=dict(
-                        var_name=(["lat", "lon", "time"], monthly_data.values)
-                    ),
-                    coords=dict(
-                        lat=monthly_data.lat,
-                        lon=monthly_data.lon,
-                        time=monthly_data.time,
-                    ),
-                )
-            else:
-                monthly_ds = xr.Dataset(
-                    data_vars=dict(
-                        var_name=(["time", "lat", "lon"], monthly_data.values)
-                    ),
-                    coords=dict(
-                        lat=monthly_data.lat,
-                        lon=monthly_data.lon,
-                        time=monthly_data.time,
-                    ),
-                )
-            monthly_ds = monthly_ds.rename({"var_name": self.var_name})
-            monthly_ds.to_netcdf(
-                os.path.join(
-                    self.processed_dir,
-                    "monthly_per_area_unit",
-                    f"{name}_{self.var_name}.nc",
-                )
-            )
+            # monthly_data = self.multi_models[name].monthly_per_area_unit
+            # if self.var_name in ["emiisop", "emiotherbvocs", "emibvoc", "gpp", "npp"]:
+            #     monthly_ds = xr.Dataset(
+            #         data_vars=dict(
+            #             var_name=(["lat", "lon", "time"], monthly_data.values)
+            #         ),
+            #         coords=dict(
+            #             lat=monthly_data.lat,
+            #             lon=monthly_data.lon,
+            #             time=monthly_data.time,
+            #         ),
+            #     )
+            # else:
+            #     monthly_ds = xr.Dataset(
+            #         data_vars=dict(
+            #             var_name=(["time", "lat", "lon"], monthly_data.values)
+            #         ),
+            #         coords=dict(
+            #             lat=monthly_data.lat,
+            #             lon=monthly_data.lon,
+            #             time=monthly_data.time,
+            #         ),
+            #     )
+            # monthly_ds = monthly_ds.rename({"var_name": self.var_name})
+            # monthly_ds.to_netcdf(
+            #     os.path.join(
+            #         self.processed_dir,
+            #         "monthly_per_area_unit",
+            #         f"{name}_{self.var_name}.nc",
+            #     )
+            # )
 
             annual_data = self.multi_models[name].annual_per_area_unit
-            if self.var_name in ["emiisop", "emiotherbvocs", "emibvoc", "gpp", "npp"]:
+            if self.var_name in ["emiotherbvocs", "emibvoc", "gpp", "npp"]:
                 annual_ds = xr.Dataset(
                     data_vars=dict(
                         var_name=(["lat", "lon", "year"], annual_data.values)
