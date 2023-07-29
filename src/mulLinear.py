@@ -1,20 +1,15 @@
 # %%
 import pandas as pd
 from sklearn.linear_model import LinearRegression
-
+from scipy.stats import pearsonr
 from CMIP6Model import *
 import statsmodels.api as sm
 
 sns.set_style("ticks")
-
-predictors = ["lai", "co2s", "tas", "rsds", "pr"]
-
-target = ["emiisop"]
-
 FIG_INDEX = 0
 
 
-def cal_actual_rate(ds, model_name):
+def cal_actual_rate(ds, model_name, mode="diff"):
     base_dir = "/mnt/dg3/ngoc/cmip6_bvoc_als/data/axl/areacella"
     fname = (
         "areacella_fx_GFDL-ESM4_historical_r1i1p1f1_gr1.nc"
@@ -27,7 +22,9 @@ def cal_actual_rate(ds, model_name):
         ds, method="nearest", tolerance=0.01
     )
     global_change = ds * reindex_ds_area * 1e-12
-    global_rate = global_change.sum(dim=["lat", "lon"]).item()
+
+    global_rate = global_change.sum(dim=["lat", "lon"])
+    global_rate = global_rate.item() if mode == "diff" else global_rate
     # global_change = ds
     # global_rate = global_change.mean(dim=["lat", "lon"]).item()
 
@@ -56,25 +53,32 @@ def wrap_long(data):
 class RegSingleModel:
     def __init__(
         self,
-        target_name=target,
-        predictor_names=predictors,
         model_name="VISIT",
     ) -> None:
-        self.target_name = target_name[0]
-        self.predictor_names = predictor_names
+        self.target_name = "emiisop"
         self.model_name = model_name
 
         self.org_ds = None
 
+        self.get_predictors()
         self.read_data()
         self.ml_als()
-        self.cal_change_con()
-        self.cal_global_change_con()
-        self.cal_regional_change_con()
+        self.cal_glob_change_ts()
+        self.cal_change_past_hist_con()
+        self.cal_glob_past_hist_con()
+        self.cal_reg_past_hist_con()
 
         self.plt_map_change()
         self.plt_global_change_con()
         # self.plt_regional_change_con()
+
+    def get_predictors(self):
+        base_predictors = ["tas", "rsds", "pr"]
+
+        if self.model_name in ["CESM2-WACCM", "NorESM2-LM", "UKESM1-0-LL"]:
+            base_predictors.append("co2s")
+
+        self.predictor_names = base_predictors
 
     def read_data(self):
         iters = self.predictor_names + [self.target_name]
@@ -90,74 +94,98 @@ class RegSingleModel:
         self.org_ds = xr.Dataset(dss, coords={"lat": lat, "lon": lon, "year": year})
 
     def regression(self, data):
-        lai = data["lai"].values
-        co2s = data["co2s"].values
-        tas = data["tas"].values
-        rsds = data["rsds"].values
-        pr = data["pr"].values
-        X = np.column_stack((lai, co2s, tas, rsds, pr))
+        preds_dict = {}
+        for pn in self.predictor_names:
+            preds_dict[pn] = data[pn].values
+
+        X = np.column_stack((preds_dict[pn] for pn in self.predictor_names))
 
         y = data[self.target_name]
-        # X[np.isnan(X)] = 0
-        # y[np.isnan(y)] = 0
         X = np.nan_to_num(X)
         y = np.nan_to_num(y).reshape(-1)
         est = LinearRegression()
         est.fit(X, y)
-        return xr.DataArray(est.coef_)
+
+        return xr.DataArray(np.append(est.coef_, est.intercept_))
 
     def ml_als(self):
+        self.preds = {}
+
         stacked = self.org_ds.stack(allpoints=["lat", "lon"])
         coefs = stacked.groupby("allpoints").map(self.regression)
         self.coefs = coefs.unstack("allpoints")
 
-    def cal_change_con(self):
-        clai = self.coefs.isel(dim_0=0).values
-        cco2 = self.coefs.isel(dim_0=1).values
-        ctas = self.coefs.isel(dim_0=2).values
-        crsds = self.coefs.isel(dim_0=3).values
-        cpr = self.coefs.isel(dim_0=4).values
+        # cal predictors
+        for i, pn in enumerate(self.predictor_names):
+            p_val = self.coefs.isel(dim_0=i).values
+            self.preds[pn] = self.org_ds[pn].values * p_val.reshape(p_val.shape + (1,))
 
-        lai = self.org_ds["lai"].values * clai.reshape(clai.shape + (1,))
-        co2s = self.org_ds["co2s"].values * cco2.reshape(cco2.shape + (1,))
-        tas = self.org_ds["tas"].values * ctas.reshape(ctas.shape + (1,))
-        rsds = self.org_ds["rsds"].values * crsds.reshape(crsds.shape + (1,))
-        pr = self.org_ds["pr"].values * cpr.reshape(cpr.shape + (1,))
+        # cal intercept
+        intercept = self.coefs.isel(dim_0=-1).values
+        self.preds["intercept"] = intercept.reshape(intercept.shape + (1,)) * np.ones(
+            self.org_ds["pr"].values.shape
+        )
 
-        lai_rate = lai[:, :, -25:-1].mean(axis=2) - lai[:, :, 0:25].mean(axis=2)
-        co2s_rate = co2s[:, :, -25:-1].mean(axis=2) - co2s[:, :, 0:25].mean(axis=2)
-        tas_rate = tas[:, :, -25:-1].mean(axis=2) - tas[:, :, 0:25].mean(axis=2)
-        rsds_rate = rsds[:, :, -25:-1].mean(axis=2) - rsds[:, :, 0:25].mean(axis=2)
-        pr_rate = pr[:, :, -25:-1].mean(axis=2) - pr[:, :, 0:25].mean(axis=2)
+        ts_pred = 0
+        for pn in self.preds.keys():
+            ts_pred += self.preds[pn]
+
+        self.ts_pred = xr.Dataset(
+            {"ts_pred": (("lat", "lon", "year"), ts_pred)},
+            coords={
+                "lon": self.org_ds.lon.values,
+                "lat": self.org_ds.lat.values,
+                "year": self.org_ds.year.values,
+            },
+        )
+
+    def cal_glob_change_ts(self):
+        self.pred_glob_rate, self.pred_glob = cal_actual_rate(
+            self.ts_pred["ts_pred"], self.model_name, mode="ts"
+        )
+        self.truth_glob_rate, self.truth_glob = cal_actual_rate(
+            self.org_ds[self.target_name], self.model_name, mode="ts"
+        )
+        print(pearsonr(self.truth_glob_rate.values, self.pred_glob_rate.values))
+        df = pd.DataFrame(
+            {"pred": self.pred_glob_rate.values, "truth": self.truth_glob_rate.values},
+            index=[i for i in range(1850, 2015)],
+        )
+        lines = df.plot.line()
+
+    def cal_change_past_hist_con(self):
+        self.past_hist = {}
+        for pn in self.predictor_names:
+            self.past_hist[pn] = self.preds[pn][:, :, -25:-1].mean(axis=2) - self.preds[
+                pn
+            ][:, :, 0:25].mean(axis=2)
+
         est_stacked = np.stack(
-            (lai_rate, co2s_rate, tas_rate, rsds_rate, pr_rate),
+            (self.past_hist[pn] for pn in self.predictor_names),
             axis=-1,
         )
         abslt_est = np.absolute(est_stacked)
         max_contrb = np.argmax(abslt_est, axis=2)
 
-        total_con = lai_rate + co2s_rate + tas_rate + rsds_rate + pr_rate
+        total_con = 0
+        for pn in self.predictor_names:
+            total_con += self.past_hist[pn]
+
+        self.past_hist["total_con"] = total_con
 
         abs_con = xr.Dataset(
             {"abs_con": (("lat", "lon"), max_contrb)},
             coords={"lon": self.org_ds.lon.values, "lat": self.org_ds.lat.values},
         )
         real_con = xr.Dataset(
-            {
-                "total_con": (("lat", "lon"), total_con),
-                "lai": (("lat", "lon"), lai_rate),
-                "co2s": (("lat", "lon"), co2s_rate),
-                "tas": (("lat", "lon"), tas_rate),
-                "rsds": (("lat", "lon"), rsds_rate),
-                "pr": (("lat", "lon"), pr_rate),
-            },
+            {pn: (("lat", "lon"), self.past_hist[pn]) for pn in self.past_hist.keys()},
             coords={"lon": self.org_ds.lon.values, "lat": self.org_ds.lat.values},
         )
 
         self.proj_abs_con = abs_con
         self.proj_real_con = real_con
 
-    def cal_global_change_con(self):
+    def cal_glob_past_hist_con(self):
         target_change = self.org_ds[self.target_name].isel(year=slice(-25, -1)).mean(
             "year"
         ) - self.org_ds[self.target_name].isel(year=slice(0, 25)).mean("year")
@@ -189,7 +217,7 @@ class RegSingleModel:
 
         self.global_change_con = df
 
-    def cal_regional_change_con(self):
+    def cal_reg_past_hist_con(self):
         df = pd.DataFrame()
         rates = []
         des = []
@@ -274,14 +302,18 @@ class RegSingleModel:
                 wrap_data, wrap_lon = wrap_long(data)
 
                 title = f"{self.model_name} - Drivers of changes in {self.target_name}"
-                center = [0.5, 1.5, 2.5, 3.5, 4.5]
+                center = [0.5 * (i * 2 + 1) for i in range(len(self.predictor_names))]
+                # center = [0.5, 1.5, 2.5, 3.5, 4.5]
+                # center = [0.5, 1.5, 2.5]
 
                 cax = ax.pcolormesh(
                     wrap_lon,
                     data.lat,
                     wrap_data,
                     cmap=matplotlib.colors.ListedColormap(
-                        matplotlib.colormaps["Accent"].colors[:5]
+                        matplotlib.colormaps["Accent"].colors[
+                            : len(self.predictor_names)
+                        ]
                     ),
                     vmin=0,
                     vmax=5,
@@ -293,11 +325,12 @@ class RegSingleModel:
                     orientation="horizontal",
                     pad=0.05,
                 )
-                cbar.ax.set_xticklabels(["lai", "co2s", "tas", "rsds", "pr"], size=14)
-                cbar.set_label(label="Dominant driver", size=14, weight="bold")
+                cbar.ax.set_xticklabels(self.predictor_names, size=14)
+                # cbar.ax.set_xticklabels(["tas", "rsds", "pr"], size=18)
+                cbar.set_label(label="Dominant driver", size=18, weight="bold")
 
             if m == "total_change":
-                data = self.proj_real_con["total_con"]
+                data = self.proj_real_con["total_con"] * mask
                 wrap_data, wrap_lon = wrap_long(data)
 
                 title = f"{self.model_name} - Changes in {self.target_name} between PI and PD"
@@ -316,8 +349,8 @@ class RegSingleModel:
                     orientation="horizontal",
                     pad=0.05,
                 )
-                cbar.set_label("[$gC/m^{2}/year$]")
-            plt.title(title, fontsize=18)
+                cbar.set_label(label="[$gC/m^{2}/year$]", size=18, weight="bold")
+            plt.title(title, fontsize=18, weight="bold")
 
     def plt_global_change_con(self):
         rs, cs = 1, 1
@@ -329,10 +362,11 @@ class RegSingleModel:
             y="rates",
             ax=axes,
             palette=sns.color_palette("Accent", len(self.global_change_con)),
+            # palette=["#beaed4", "#fdc086", "#ffff99", "#386cb0", "#f0027f"],
         ).set(title=f"{self.model_name}")
         axes.set_xlabel(" ")
         axes.set_ylabel("Isoprene emission [TgC]")
-        axes.set_ylim([-120, 60])
+        axes.set_ylim([-120, 75])
 
     def plt_regional_change_con(self):
         sns.barplot(self.regional_change_con, x="scale", y="rates", hue="des")

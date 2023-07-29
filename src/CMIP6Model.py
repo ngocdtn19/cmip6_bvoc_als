@@ -79,9 +79,9 @@ class Model(ModelVar):
 
         # remove files without containing model_name
         all_var_files = [f for f in all_var_files if self.model_name in f]
-        self.var_names = sorted(list(
-            set([f.split("/")[-1].split("_")[0] for f in all_var_files])
-        ))
+        self.var_names = sorted(
+            list(set([f.split("/")[-1].split("_")[0] for f in all_var_files]))
+        )
 
         for v_name in self.var_names:
             print(v_name)
@@ -1352,6 +1352,8 @@ class Var(ModelVar):
 
 
 class Land:
+    processed_dir = os.path.join(DATA_DIR, "processed_data")
+
     def __init__(self, model_name="UKESM1-0-LL", mon_type="Emon") -> None:
         self.model_name = model_name
         self.mon_type = mon_type
@@ -1526,6 +1528,25 @@ class Land:
                 loc="upper left",
                 ncol=1,
                 bbox_to_anchor=(1.0, 0.7),
+            )
+
+    def save_2_nc(self):
+        ds_sftlf = copy.deepcopy(self.ds_sftlf)
+        for ltype in self.land_type:
+            ds = xr.Dataset({})
+            reindex_ltype = self.org_cell_objs[ltype][ltype].reindex_like(
+                self.ds_sftlf, method="nearest", tolerance=0.01
+            )
+            data = reindex_ltype * ds_sftlf * 1e-2
+            data = self.org_cell_objs[ltype][ltype]
+
+            ds[ltype] = data.sel(time=data.time.dt.month.isin([12]))
+            ds.to_netcdf(
+                os.path.join(
+                    self.processed_dir,
+                    "annual_per_area_unit",
+                    f"{self.model_name}_{ltype}.nc",
+                )
             )
 
 

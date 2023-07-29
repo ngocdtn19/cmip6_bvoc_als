@@ -405,11 +405,23 @@ def resample(folder):
                 else:
                     ds = xr.open_dataset(file_path)
                 resampled_ds = interpolate(ds, lat, lon)
+                lat = resampled_ds.lat.values
+                lon = resampled_ds.lon.values
+                year = resampled_ds.time.dt.year.values
+                new_ds = xr.Dataset(
+                    data_vars={
+                        var_name: (
+                            ["year", "lat", "lon"],
+                            resampled_ds[var_name].values,
+                        )
+                    },
+                    coords={"year": year, "lat": lat, "lon": lon},
+                )
 
                 if not os.path.isdir(new_folder):
                     os.makedirs(new_folder)
 
-                resampled_ds.to_netcdf(new_path)
+                new_ds.to_netcdf(new_path)
 
 
 # %%
